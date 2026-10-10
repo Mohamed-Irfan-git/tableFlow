@@ -11,6 +11,26 @@ npm run dev
 
 Open `http://localhost:3000` for the public experience or `http://localhost:3000/host` for the host desk.
 
+## Run the API
+
+The API is a FastAPI modular monolith backed by PostgreSQL. Keep your local PostgreSQL connection and JWT secret in an untracked `backend/.env`, using `backend/.env.example` as the template.
+
+```bash
+cd backend
+uv sync --all-groups
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+The health check is available at `http://localhost:8000/health`; versioned application routes are under `/api/v1`. For an isolated local PostgreSQL instance, copy `.env.example` to a root `.env`, choose a local-only `POSTGRES_PASSWORD`, run `docker compose up -d` from the project root, and update `DATABASE_URL` in `backend/.env` to match it.
+
+## Quality checks
+
+```bash
+cd frontend && npm run lint && npx next build --webpack
+cd ../backend && uv run ruff check app tests && uv run pytest
+```
+
 ## Project direction
 
 - Customer experience: cinematic fine-dining editorial design with accessible, reduced-motion-aware interaction.
