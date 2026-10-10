@@ -485,8 +485,6 @@ export function HostDesk() {
   const accessDenied = Boolean(
     session && !canAccessHostDesk(session.user.role),
   );
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [tables, setTables] = useState<ApiTable[]>([]);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -543,6 +541,9 @@ export function HostDesk() {
 
   const login = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
     setIsSubmitting(true);
     setError(null);
     try {
@@ -660,22 +661,20 @@ export function HostDesk() {
           <label>
             Email
             <input
+              name="email"
               type="email"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="username"
               placeholder="host@restaurant.com"
             />
           </label>
           <label>
             Password
             <input
+              name="password"
               type="password"
               required
               autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
               placeholder="Your password"
             />
           </label>
