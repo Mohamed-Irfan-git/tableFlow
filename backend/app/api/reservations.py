@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, get_optional_user
+from app.core.dependencies import get_current_user, get_optional_user, require_roles
 from app.db.session import get_db
-from app.models import Reservation, RestaurantTable, User
+from app.models import Reservation, ReservationStatus, RestaurantTable, Role, User
 from app.realtime.hub import event_hub
 from app.schemas.reservations import (
     ReservationCancellation,
@@ -22,6 +22,29 @@ from app.services.reservations import (
 )
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
+
+
+@router.get("", response_model=list[ReservationPublic])
+def list_for_host(
+    restaurant_id: int,
+    user: User = Depends(require_roles(Role.HOST, Role.MANAGER, Role.ADMIN)),
+    db: Session = Depends(get_db),
+) -> list[Reservation]:
+    """Return active reservations for the host desk, ordered by arrival."""
+    del user  # Authorization is enforced by the dependency above.
+    return list(
+        db.scalars(
+            select(Reservation)
+            .join(Reservation.table)
+            .where(
+                RestaurantTable.restaurant_id == restaurant_id,
+                Reservation.status.in_(
+                    (ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN)
+                ),
+            )
+            .order_by(Reservation.reservation_date.asc(), Reservation.slot_start.asc())
+        ).all()
+    )
 
 
 @router.get("/availability", response_model=list[TablePublic])

@@ -15,6 +15,7 @@ class AvailabilityQuery(BaseModel):
 class ReservationCreate(AvailabilityQuery):
     guest_name: str = Field(min_length=2, max_length=120)
     guest_email: EmailStr
+    preferred_table_id: int | None = Field(default=None, gt=0)
     notes: str | None = Field(default=None, max_length=1000)
 
 

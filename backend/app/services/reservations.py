@@ -60,13 +60,18 @@ def create_reservation(
     guest_count: int,
     guest_name: str,
     guest_email: str,
+    preferred_table_id: int | None,
     notes: str | None,
 ) -> Reservation:
-    """Claim the smallest suitable table while holding a row lock until commit."""
+    """Lock and claim a requested compatible table, or the smallest compatible table."""
+    candidate_query = _candidate_tables(
+        restaurant_id, reservation_date, slot_start, guest_count
+    )
+    if preferred_table_id is not None:
+        candidate_query = candidate_query.where(RestaurantTable.id == preferred_table_id)
+
     candidates = db.scalars(
-        _candidate_tables(restaurant_id, reservation_date, slot_start, guest_count).with_for_update(
-            skip_locked=True
-        )
+        candidate_query.with_for_update(skip_locked=True)
     ).all()
 
     for table in candidates:
