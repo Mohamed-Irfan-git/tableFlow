@@ -5,10 +5,9 @@ description = "TableFlow restaurant operations API"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",
-  "bcrypt>=4.0,<5",
   "fastapi>=0.115,<1",
   "email-validator>=2.2,<3",
-  "passlib[bcrypt]>=1.7,<2",
+  "pwdlib[argon2]>=0.3,<1",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.6,<3",
   "PyJWT>=2.10,<3",

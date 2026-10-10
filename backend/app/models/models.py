@@ -102,8 +102,12 @@ class Reservation(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    customer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     table_id: Mapped[int] = mapped_column(ForeignKey("restaurant_tables.id"), index=True)
+    guest_name: Mapped[str] = mapped_column(String(120))
+    guest_email: Mapped[str] = mapped_column(String(255), index=True)
     reservation_date: Mapped[date] = mapped_column(Date, index=True)
     slot_start: Mapped[time] = mapped_column(Time)
     guest_count: Mapped[int] = mapped_column(Integer)
@@ -111,8 +115,12 @@ class Reservation(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    customer: Mapped[User] = relationship(back_populates="reservations")
+    customer: Mapped[User | None] = relationship(back_populates="reservations")
     table: Mapped[RestaurantTable] = relationship(back_populates="reservations")
+
+    @property
+    def table_number(self) -> str:
+        return self.table.number
 
 
 class QueueEntry(Base):

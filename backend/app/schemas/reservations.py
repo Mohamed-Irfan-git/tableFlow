@@ -1,6 +1,6 @@
 from datetime import date, time
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models import ReservationStatus
 
@@ -13,6 +13,8 @@ class AvailabilityQuery(BaseModel):
 
 
 class ReservationCreate(AvailabilityQuery):
+    guest_name: str = Field(min_length=2, max_length=120)
+    guest_email: EmailStr
     notes: str | None = Field(default=None, max_length=1000)
 
 
@@ -20,8 +22,11 @@ class ReservationPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    customer_id: int
+    customer_id: int | None
     table_id: int
+    table_number: str
+    guest_name: str
+    guest_email: EmailStr
     reservation_date: date
     slot_start: time
     guest_count: int

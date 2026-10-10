@@ -19,10 +19,11 @@ The API is a FastAPI modular monolith backed by PostgreSQL. Keep your local Post
 cd backend
 uv sync --all-groups
 uv run alembic upgrade head
+TABLEFLOW_DEMO_HOST_PASSWORD='<choose-a-local-password>' uv run python -m app.db.seed
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-The health check is available at `http://localhost:8000/health`; versioned application routes are under `/api/v1`. For an isolated local PostgreSQL instance, copy `.env.example` to a root `.env`, choose a local-only `POSTGRES_PASSWORD`, run `docker compose up -d` from the project root, and update `DATABASE_URL` in `backend/.env` to match it.
+The health check is available at `http://localhost:8000/health`; versioned application routes are under `/api/v1`. The seed command creates the default host as `host@tableflowdemo.com` using the local-only password you supply. For an isolated local PostgreSQL instance, copy `.env.example` to a root `.env`, choose a local-only `POSTGRES_PASSWORD`, run `docker compose up -d` from the project root, and set `DATABASE_URL` in `backend/.env` to `postgresql+psycopg://tableflow:<your-password>@localhost:55432/tableflow`.
 
 ## Quality checks
 

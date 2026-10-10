@@ -53,11 +53,13 @@ def find_available_tables(
 def create_reservation(
     db: Session,
     *,
-    customer: User,
+    customer: User | None,
     restaurant_id: int,
     reservation_date: date,
     slot_start: time,
     guest_count: int,
+    guest_name: str,
+    guest_email: str,
     notes: str | None,
 ) -> Reservation:
     """Claim the smallest suitable table while holding a row lock until commit."""
@@ -69,8 +71,10 @@ def create_reservation(
 
     for table in candidates:
         reservation = Reservation(
-            customer_id=customer.id,
+            customer_id=customer.id if customer is not None else None,
             table_id=table.id,
+            guest_name=guest_name.strip(),
+            guest_email=guest_email.lower(),
             reservation_date=reservation_date,
             slot_start=slot_start,
             guest_count=guest_count,
