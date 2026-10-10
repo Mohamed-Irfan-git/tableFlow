@@ -38,11 +38,19 @@ const menuItems = [
 ];
 
 const times = ["5:30 PM", "7:00 PM", "8:30 PM"];
-const reservationDate = "2026-10-16";
-const reservationDateLabel = "Friday, 16 October";
+const defaultReservationDate = "2026-10-16";
 const slotStarts: Record<string, string> = { "5:30 PM": "17:30:00", "7:00 PM": "19:00:00", "8:30 PM": "20:30:00" };
 
 type ReservationResult = { id: number; table_number: string };
+
+function formatReservationDate(value: string, short = false) {
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: short ? "short" : "long",
+    day: "numeric",
+    month: short ? "short" : "long",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T12:00:00Z`));
+}
 
 function Monogram({ inverse = false }: { inverse?: boolean }) {
   return <span className={`monogram ${inverse ? "monogram--inverse" : ""}`}>TF</span>;
@@ -60,6 +68,7 @@ export function DiningHome() {
   const pageRef = useRef<HTMLDivElement>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [reservationDate, setReservationDate] = useState(defaultReservationDate);
   const [selectedTime, setSelectedTime] = useState("7:00 PM");
   const [guestCount, setGuestCount] = useState(2);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -82,6 +91,8 @@ export function DiningHome() {
   }, []);
 
   const filteredItems = activeCategory === "All" ? menuItems : menuItems.filter((item) => item.category === activeCategory);
+  const reservationDateLabel = formatReservationDate(reservationDate);
+  const shortReservationDateLabel = formatReservationDate(reservationDate, true);
   const openReservation = () => { setReservationMade(false); setReservationError(null); setSheetOpen(true); };
   const confirmReservation = async () => {
     if (!guestName.trim() || !guestEmail.trim()) {
@@ -116,7 +127,7 @@ export function DiningHome() {
       <Image className="hero__image" src="/images/tableflow-hero.png" alt="Candlelit TableFlow dining room" fill priority sizes="100vw" />
       <div className="hero__shade" />
       <header className="site-header shell"><a className="brand" href="#experience" aria-label="TableFlow home"><Monogram inverse /><span>TableFlow</span></a><nav className="desktop-nav" aria-label="Primary navigation"><a href="#experience">Experience</a><a href="#menu">Menu</a><a href="#reservations">Reservations</a><a href="#visit">Visit</a></nav><button className="nav-reserve" onClick={openReservation}>Reserve a table</button><button className="mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileMenu(true)}><Menu /></button></header>
-      <div className="shell hero__content"><div className="hero__copy"><p className="hero__kicker">An evening of intention</p><h1>A table, timed<br />to perfection.</h1><p className="hero__lede">TableFlow coordinates every arrival with the ease of true hospitality.</p><MagneticButton onClick={openReservation}>Reserve a table <ArrowRight aria-hidden="true" /></MagneticButton></div><div className="availability-card" aria-label="Reservation availability"><div className="availability-card__top"><span>Find your moment</span><CalendarDays aria-hidden="true" /></div><div className="booking-fields"><button className="booking-field" onClick={openReservation}><span>Date</span><strong>Fri, 16 Oct</strong><ChevronDown /></button><button className="booking-field" onClick={openReservation}><span>Guests</span><strong>{guestCount}</strong><ChevronDown /></button></div><div className="time-label">One-hour arrival windows</div><div className="time-options">{times.map((time) => <button key={time} onClick={() => setSelectedTime(time)} className={`time-option ${selectedTime === time ? "is-selected" : ""}`}><strong>{time}</strong><span>{time === "8:30 PM" ? "Limited" : "Available"}</span></button>)}</div></div></div>
+      <div className="shell hero__content"><div className="hero__copy"><p className="hero__kicker">An evening of intention</p><h1>A table, timed<br />to perfection.</h1><p className="hero__lede">TableFlow coordinates every arrival with the ease of true hospitality.</p><MagneticButton onClick={openReservation}>Reserve a table <ArrowRight aria-hidden="true" /></MagneticButton></div><div className="availability-card" aria-label="Reservation availability"><div className="availability-card__top"><span>Find your moment</span><CalendarDays aria-hidden="true" /></div><div className="booking-fields"><button className="booking-field" onClick={openReservation}><span>Date</span><strong>{shortReservationDateLabel}</strong><ChevronDown /></button><button className="booking-field" onClick={openReservation}><span>Guests</span><strong>{guestCount}</strong><ChevronDown /></button></div><div className="time-label">One-hour arrival windows</div><div className="time-options">{times.map((time) => <button key={time} onClick={() => setSelectedTime(time)} className={`time-option ${selectedTime === time ? "is-selected" : ""}`}><strong>{time}</strong><span>{time === "8:30 PM" ? "Limited" : "Available"}</span></button>)}</div></div></div>
       <a className="hero__scroll-cue" href="#story">Scroll to explore <ArrowDownRight aria-hidden="true" /></a>
     </section>
 
@@ -130,6 +141,6 @@ export function DiningHome() {
     <footer className="site-footer"><div className="shell"><div className="footer-brand"><Monogram inverse /><span>TableFlow</span></div><p>Thoughtful service, from the first click to the final pour.</p><nav><a href="#reservations">Reservations</a><a href="#menu">Menu</a><Link href="/host">Host desk</Link></nav></div></footer>
 
     <AnimatePresence>{mobileMenu && <motion.div className="mobile-nav" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><button aria-label="Close navigation" onClick={() => setMobileMenu(false)}><X /></button><Monogram inverse /><a onClick={() => setMobileMenu(false)} href="#experience">Experience</a><a onClick={() => setMobileMenu(false)} href="#menu">Menu</a><a onClick={() => setMobileMenu(false)} href="#reservations">Reservations</a><a onClick={() => setMobileMenu(false)} href="#visit">Visit</a><MagneticButton onClick={() => { setMobileMenu(false); openReservation(); }}>Reserve a table <ArrowRight /></MagneticButton></motion.div>}</AnimatePresence>
-    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}><SheetContent side="right" className="reservation-sheet"><SheetHeader><SheetTitle>{reservationMade ? "Your table is held." : "Complete your reservation"}</SheetTitle><SheetDescription>{reservationMade ? "We will send confirmation details to your email shortly." : "This reservation holds a one-hour arrival window."}</SheetDescription></SheetHeader>{reservationMade ? <motion.div className="reservation-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}><span><Check /></span><h3>{reservationDateLabel}<br />{selectedTime}</h3><p>{guestCount} guests · {assignedTable}</p><button className="sheet-action" onClick={() => setSheetOpen(false)}>Done</button></motion.div> : <div className="sheet-form"><label><span>Date</span><button type="button">{reservationDateLabel} <ChevronDown /></button></label><label><span>Guests</span><button type="button">{guestCount} guests <ChevronDown /></button></label><label className="sheet-input"><span>Your name</span><input value={guestName} onChange={(event) => setGuestName(event.target.value)} autoComplete="name" placeholder="Your full name" /></label><label className="sheet-input"><span>Email for confirmation</span><input value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="you@example.com" type="email" /></label><label><span>Arrival time</span><div className="sheet-times">{times.map((time) => <button type="button" key={time} onClick={() => setSelectedTime(time)} className={selectedTime === time ? "selected" : ""}>{time}</button>)}</div></label><div className="table-choice"><span>Table assignment</span><strong>We’ll reserve the best available table for your party.</strong></div>{reservationError && <p className="reservation-error" role="alert">{reservationError}</p>}<button className="sheet-action" disabled={isSubmitting} onClick={confirmReservation}>{isSubmitting ? "Holding your table…" : "Confirm reservation"} <ArrowRight /></button></div>}</SheetContent></Sheet>
+    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}><SheetContent side="right" className="reservation-sheet"><SheetHeader><SheetTitle>{reservationMade ? "Your table is held." : "Complete your reservation"}</SheetTitle><SheetDescription>{reservationMade ? "We will send confirmation details to your email shortly." : "This reservation holds a one-hour arrival window."}</SheetDescription></SheetHeader>{reservationMade ? <motion.div className="reservation-success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}><span><Check /></span><h3>{reservationDateLabel}<br />{selectedTime}</h3><p>{guestCount} guests · {assignedTable}</p><button className="sheet-action" onClick={() => setSheetOpen(false)}>Done</button></motion.div> : <div className="sheet-form"><label className="sheet-input"><span>Date</span><input type="date" min="2026-10-10" value={reservationDate} onChange={(event) => setReservationDate(event.target.value)} /></label><label><span>Guests</span><div className="sheet-guests"><button type="button" onClick={() => setGuestCount((count) => Math.max(1, count - 1))} aria-label="Decrease guests"><Minus /></button><strong>{guestCount} guests</strong><button type="button" onClick={() => setGuestCount((count) => Math.min(12, count + 1))} aria-label="Increase guests"><Plus /></button></div></label><label className="sheet-input"><span>Your name</span><input value={guestName} onChange={(event) => setGuestName(event.target.value)} autoComplete="name" placeholder="Your full name" /></label><label className="sheet-input"><span>Email for confirmation</span><input value={guestEmail} onChange={(event) => setGuestEmail(event.target.value)} autoComplete="email" inputMode="email" placeholder="you@example.com" type="email" /></label><label><span>Arrival time</span><div className="sheet-times">{times.map((time) => <button type="button" key={time} onClick={() => setSelectedTime(time)} className={selectedTime === time ? "selected" : ""}>{time}</button>)}</div></label><div className="table-choice"><span>Table assignment</span><strong>We’ll reserve the best available table for your party.</strong></div>{reservationError && <p className="reservation-error" role="alert">{reservationError}</p>}<button className="sheet-action" disabled={isSubmitting} onClick={confirmReservation}>{isSubmitting ? "Holding your table…" : "Confirm reservation"} <ArrowRight /></button></div>}</SheetContent></Sheet>
   </main>;
 }

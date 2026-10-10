@@ -96,6 +96,7 @@ a { color:inherit; text-decoration:none; }
 .sheet-form .sheet-input input { width:100%; min-height:50px; padding:0 15px; color:var(--ivory); border:1px solid rgba(243,239,230,.25); outline:0; background:transparent; font:15px var(--sans); }
 .sheet-form .sheet-input input::placeholder { color:rgba(243,239,230,.38); }
 .sheet-form .sheet-input input:focus { border-color:var(--gold-light); box-shadow:0 0 0 3px rgba(232,201,133,.14); }
+.sheet-guests { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; min-height:50px; border:1px solid rgba(243,239,230,.25); }.sheet-guests button { display:grid; min-height:48px; place-items:center; border:0; color:var(--ivory); background:transparent; }.sheet-guests button:first-child { border-right:1px solid rgba(243,239,230,.19); }.sheet-guests button:last-child { border-left:1px solid rgba(243,239,230,.19); }.sheet-guests svg { width:15px; }.sheet-guests strong { font:18px var(--serif); font-weight:400; text-align:center; }
 .sheet-action:disabled,.assign-table:disabled,.queue-row>button:disabled { cursor:not-allowed; opacity:.48; }
 .reservation-error { margin:0; color:#ffc9ba; font-size:12px; line-height:1.45; }
 .host-login { min-height:100svh; display:grid; place-items:center; position:relative; overflow:hidden; padding:32px; color:var(--ivory); background:radial-gradient(circle at 73% 16%,rgba(207,173,109,.18),transparent 28%),linear-gradient(120deg,#13140f,#222419); }
