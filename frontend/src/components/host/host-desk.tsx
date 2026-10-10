@@ -54,6 +54,7 @@ type HostSession = {
   accessToken: string;
   user: { full_name: string; role: string };
 };
+type HostDeskRole = "HOST" | "MANAGER" | "ADMIN";
 type TokenResponse = { access_token: string; user: HostSession["user"] };
 type HostView =
   | "Overview"
@@ -84,6 +85,9 @@ const nav: ReadonlyArray<readonly [typeof LayoutDashboard, HostView]> = [
   [Clock3, "Reports"],
 ];
 const sessionEvent = "tableflow-host-session-change";
+const hostDeskRoles = new Set<HostDeskRole>(["HOST", "MANAGER", "ADMIN"]);
+const hostAccessError =
+  "This is a guest account. Sign in with a host, manager, or admin account to use the host desk.";
 let cachedSessionValue: string | null | undefined;
 let cachedSession: HostSession | null = null;
 
@@ -107,6 +111,10 @@ function subscribeToSession(notify: () => void) {
     window.removeEventListener("storage", notify);
     window.removeEventListener(sessionEvent, notify);
   };
+}
+
+function canAccessHostDesk(role: string): role is HostDeskRole {
+  return hostDeskRoles.has(role as HostDeskRole);
 }
 
 function displayStatus(
@@ -474,6 +482,9 @@ export function HostDesk() {
     readStoredSession,
     () => null,
   );
+  const accessDenied = Boolean(
+    session && !canAccessHostDesk(session.user.role),
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tables, setTables] = useState<ApiTable[]>([]);
@@ -522,13 +533,13 @@ export function HostDesk() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || accessDenied) return;
     const timer = window.setTimeout(
       () => void loadDesk(session.accessToken),
       0,
     );
     return () => window.clearTimeout(timer);
-  }, [loadDesk, session]);
+  }, [accessDenied, loadDesk, session]);
 
   const login = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -539,6 +550,10 @@ export function HostDesk() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      if (!canAccessHostDesk(response.user.role)) {
+        setError(hostAccessError);
+        return;
+      }
       window.sessionStorage.setItem(
         "tableflow-host-session",
         JSON.stringify({
@@ -576,6 +591,7 @@ export function HostDesk() {
     try {
       const entry = await apiRequest<QueueEntry>("/queue", {
         method: "POST",
+        headers: { Authorization: `Bearer ${session.accessToken}` },
         body: JSON.stringify({
           restaurant_id: restaurantId,
           customer_name: walkInName.trim(),
@@ -629,7 +645,7 @@ export function HostDesk() {
     if (view === "Walk-ins") setShowWalkIn(true);
   };
 
-  if (!session)
+  if (!session || accessDenied)
     return (
       <main className="host-login">
         <Link className="host-login__brand" href="/">
@@ -663,9 +679,9 @@ export function HostDesk() {
               placeholder="Your password"
             />
           </label>
-          {error && (
+          {(accessDenied ? hostAccessError : error) && (
             <p className="host-form-error" role="alert">
-              {error}
+              {accessDenied ? hostAccessError : error}
             </p>
           )}
           <button type="submit" disabled={isSubmitting}>
