@@ -39,40 +39,36 @@ The public experience uses a warm editorial palette and supports reduced motion.
 
 - Node.js and npm
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- Docker Compose, or a local PostgreSQL database
+- A local PostgreSQL database
+- Docker Compose (optional, for an isolated database)
 
-### 1. Start PostgreSQL
+### 1. Connect to local PostgreSQL
 
-From the repository root, create a local environment file and choose a local-only password:
-
-```bash
-cp .env.example .env
-```
-
-Set `POSTGRES_PASSWORD` in `.env`, then start the database. Docker Compose maps it to port `55432` on your machine.
-
-```bash
-docker compose up -d
-```
-
-If you already have PostgreSQL running locally, skip Compose and point `DATABASE_URL` at that database instead.
-
-### 2. Configure and start the API
-
-Create the backend environment file:
+Make sure PostgreSQL is running and that the `tableflow` database and its user exist. Copy the backend environment template:
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-For the Compose database, update `DATABASE_URL` in `backend/.env` to use the same password and port:
+Set `DATABASE_URL` in `backend/.env` to match your local PostgreSQL user, password, host, port, and database. The template uses this local connection shape on port `5432`:
 
 ```dotenv
-DATABASE_URL=postgresql+psycopg://tableflow:<your-local-password>@localhost:55432/tableflow
+DATABASE_URL=postgresql+psycopg://tableflow:<your-local-password>@localhost:5432/tableflow
 JWT_SECRET=<a-long-random-local-secret>
 ```
 
-Then install dependencies, apply migrations, seed the demo restaurant, and run the API:
+Replace the example password and JWT secret with local values. To use an isolated PostgreSQL container instead, create a root `.env`, set `POSTGRES_PASSWORD`, and start Compose:
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+Compose exposes PostgreSQL on port `55432`; update `DATABASE_URL` to use that port and the same password.
+
+### 2. Configure and start the API
+
+Install dependencies, apply migrations, seed the demo restaurant, and run the API:
 
 ```bash
 cd backend
