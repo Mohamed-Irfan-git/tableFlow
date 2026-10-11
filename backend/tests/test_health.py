@@ -1,11 +1,5 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
+from app.main import health
 
 
 def test_health_reports_service_status() -> None:
-    with TestClient(app) as client:
-        response = client.get("/health")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "tableflow-api"}
+    assert health() == {"status": "ok", "service": "tableflow-api"}

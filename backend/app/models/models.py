@@ -38,6 +38,7 @@ class TableStatus(str, enum.Enum):
 class ReservationStatus(str, enum.Enum):
     CONFIRMED = "CONFIRMED"
     CHECKED_IN = "CHECKED_IN"
+    COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
 
 
@@ -83,6 +84,9 @@ class RestaurantTable(Base):
     capacity: Mapped[int] = mapped_column(Integer)
     status: Mapped[TableStatus] = mapped_column(Enum(TableStatus, name="table_status"), default=TableStatus.AVAILABLE)
     location: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    unavailable_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="tables")
     reservations: Mapped[list["Reservation"]] = relationship(back_populates="table")

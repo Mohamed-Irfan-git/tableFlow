@@ -36,6 +36,7 @@ type ApiTable = {
   capacity: number;
   status: ApiTableStatus;
   location: string | null;
+  unavailable_until: string | null;
 };
 type QueueEntry = {
   id: number;
@@ -53,7 +54,9 @@ type Reservation = {
   reservation_date: string;
   slot_start: string;
   guest_count: number;
-  status: "CONFIRMED" | "CHECKED_IN";
+  status: "CONFIRMED" | "CHECKED_IN" | "COMPLETED";
+  can_check_in: boolean;
+  can_complete: boolean;
 };
 type HostSession = {
   accessToken: string;
@@ -133,11 +136,17 @@ function waitLabel(arrivedAt: string) {
 function reservationMoment(reservation: Reservation) {
   return `${reservation.reservation_date} · ${reservation.slot_start.slice(0, 5)}`;
 }
+function unavailableUntilLabel(unavailableUntil: string | null) {
+  if (!unavailableUntil) return "No expiry set";
+  return new Date(unavailableUntil).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 function FloorBoard({
   tables,
   queue,
-  reservations,
   selectedTableId,
   isSubmitting,
   onSelectTable,
@@ -147,24 +156,23 @@ function FloorBoard({
 }: {
   tables: ApiTable[];
   queue: QueueEntry[];
-  reservations: Reservation[];
   selectedTableId: number | null;
   isSubmitting: boolean;
   onSelectTable: (tableId: number) => void;
   onClearTable: () => void;
   onSeatParty: (entry: QueueEntry, table: ApiTable) => void;
-  onUpdateTableStatus: (table: ApiTable, status: EditableTableStatus) => void;
+  onUpdateTableStatus: (
+    table: ApiTable,
+    status: EditableTableStatus,
+    unavailableForMinutes?: number,
+  ) => void;
 }) {
+  const [unavailableForMinutes, setUnavailableForMinutes] = useState(60);
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
   const nextParty = selectedTable
     ? queue.find((entry) => entry.guest_count <= selectedTable.capacity)
     : undefined;
-  const hasActiveReservation = selectedTable
-    ? reservations.some(
-        (reservation) => reservation.table_number === selectedTable.number,
-      )
-    : false;
   const dynamicRows = Math.ceil(tables.length / 3);
   const floorMinHeight = tables.length <= 10 ? 470 : 280 + dynamicRows * 65;
   return (
@@ -269,6 +277,12 @@ function FloorBoard({
                     {displayStatus(selectedTable.status)}
                   </dd>
                 </div>
+                {selectedTable.status === "UNAVAILABLE" && (
+                  <div>
+                    <dt>Unavailable until</dt>
+                    <dd>{unavailableUntilLabel(selectedTable.unavailable_until)}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>Location</dt>
                   <dd>{selectedTable.location ?? "—"}</dd>
@@ -307,26 +321,45 @@ function FloorBoard({
                       disabled={
                         isSubmitting ||
                         selectedTable.status === status ||
-                        (status === "AVAILABLE" &&
+                        (status === "OCCUPIED" &&
                           selectedTable.status === "RESERVED") ||
-                        (status === "UNAVAILABLE" && hasActiveReservation)
+                        (status === "AVAILABLE" &&
+                          selectedTable.status === "RESERVED")
                       }
-                      onClick={() => onUpdateTableStatus(selectedTable, status)}
+                      onClick={() =>
+                        onUpdateTableStatus(
+                          selectedTable,
+                          status,
+                          status === "UNAVAILABLE" ? unavailableForMinutes : undefined,
+                        )
+                      }
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-                <small className="table-status-help">
-                  Reserved follows the booking time. Mark available after guests
-                  leave or an issue is fixed.
-                </small>
-                {hasActiveReservation && (
-                  <small>
-                    An active reservation is assigned here. Move or cancel it
-                    before marking this table unavailable.
-                  </small>
+                {selectedTable.status !== "UNAVAILABLE" && (
+                  <label className="table-unavailable-duration">
+                    <span>Mark unavailable for</span>
+                    <select
+                      value={unavailableForMinutes}
+                      onChange={(event) =>
+                        setUnavailableForMinutes(Number(event.target.value))
+                      }
+                    >
+                      <option value={30}>30 minutes</option>
+                      <option value={60}>1 hour</option>
+                      <option value={120}>2 hours</option>
+                      <option value={240}>4 hours</option>
+                      <option value={480}>8 hours</option>
+                      <option value={1440}>24 hours</option>
+                    </select>
+                  </label>
                 )}
+                <small className="table-status-help">
+                  Reservations follow their time slot. Maintenance expires
+                  automatically; mark available early when the issue is fixed.
+                </small>
               </div>
               <button
                 className="assign-table"
@@ -471,7 +504,17 @@ function ActivityPanel({
   );
 }
 
-function ReservationLedger({ reservations }: { reservations: Reservation[] }) {
+function ReservationLedger({
+  reservations,
+  isSubmitting,
+  onCheckIn,
+  onComplete,
+}: {
+  reservations: Reservation[];
+  isSubmitting: boolean;
+  onCheckIn: (reservation: Reservation) => void;
+  onComplete: (reservation: Reservation) => void;
+}) {
   return (
     <section className="host-task-panel">
       <div className="host-task-heading">
@@ -491,7 +534,35 @@ function ReservationLedger({ reservations }: { reservations: Reservation[] }) {
                 </span>
               </div>
               <em>{reservation.table_number}</em>
-              <small>{displayStatus(reservation.status)}</small>
+              <small>
+                {reservation.status === "CONFIRMED" && !reservation.can_check_in
+                  ? "Check-in opens 30 min before"
+                  : displayStatus(reservation.status)}
+              </small>
+              <div className="reservation-ledger__actions">
+                {reservation.status === "CONFIRMED" ? (
+                  <button
+                    type="button"
+                    disabled={isSubmitting || !reservation.can_check_in}
+                    title={
+                      reservation.can_check_in
+                        ? undefined
+                        : "Check-in opens 30 minutes before the reservation."
+                    }
+                    onClick={() => onCheckIn(reservation)}
+                  >
+                    Check in
+                  </button>
+                ) : reservation.status === "CHECKED_IN" ? (
+                  <button
+                    type="button"
+                    disabled={isSubmitting || !reservation.can_complete}
+                    onClick={() => onComplete(reservation)}
+                  >
+                    Finish &amp; release table
+                  </button>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>
@@ -635,7 +706,9 @@ export function HostDesk() {
         void loadDesk(session.accessToken);
       } else if (
         event.type === "reservation.created" ||
-        event.type === "reservation.cancelled"
+        event.type === "reservation.cancelled" ||
+        event.type === "reservation.checked_in" ||
+        event.type === "reservation.completed"
       ) {
         void loadDesk(session.accessToken);
       } else if (
@@ -760,6 +833,7 @@ export function HostDesk() {
   const updateTableStatus = async (
     table: ApiTable,
     status: EditableTableStatus,
+    unavailableForMinutes?: number,
   ) => {
     if (!session) return;
     setIsSubmitting(true);
@@ -771,7 +845,12 @@ export function HostDesk() {
         {
           method: "PATCH",
           headers: { Authorization: `Bearer ${session.accessToken}` },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status,
+            ...(status === "UNAVAILABLE"
+              ? { unavailable_for_minutes: unavailableForMinutes }
+              : {}),
+          }),
         },
       );
       setTables((current) =>
@@ -779,12 +858,49 @@ export function HostDesk() {
           item.id === updatedTable.id ? updatedTable : item,
         ),
       );
-      setNotice(`${updatedTable.number} marked ${displayStatus(status).toLowerCase()}.`);
+      setNotice(
+        status === "UNAVAILABLE"
+          ? `${updatedTable.number} is unavailable until ${unavailableUntilLabel(updatedTable.unavailable_until)}.`
+          : `${updatedTable.number} marked ${displayStatus(updatedTable.status).toLowerCase()}.`,
+      );
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
           : "Unable to update this table.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const changeReservationState = async (
+    reservation: Reservation,
+    action: "check-in" | "complete",
+  ) => {
+    if (!session) return;
+    setIsSubmitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await apiRequest<Reservation>(
+        `/reservations/${reservation.id}/${action}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        },
+      );
+      setNotice(
+        action === "check-in"
+          ? `${reservation.guest_name} checked in at ${reservation.table_number}.`
+          : `${reservation.table_number} released for the next party.`,
+      );
+      await loadDesk(session.accessToken);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update this reservation.",
       );
     } finally {
       setIsSubmitting(false);
@@ -846,14 +962,13 @@ export function HostDesk() {
     <FloorBoard
       tables={tables}
       queue={queue}
-      reservations={reservations}
       selectedTableId={selectedTableId}
       isSubmitting={isSubmitting}
       onSelectTable={setSelectedTableId}
       onClearTable={() => setSelectedTableId(null)}
       onSeatParty={(entry, table) => void seatParty(entry, table)}
-      onUpdateTableStatus={(table, status) =>
-        void updateTableStatus(table, status)
+      onUpdateTableStatus={(table, status, unavailableForMinutes) =>
+        void updateTableStatus(table, status, unavailableForMinutes)
       }
     />
   );
@@ -877,7 +992,18 @@ export function HostDesk() {
       </>
     );
   if (activeNav === "Reservations")
-    content = <ReservationLedger reservations={reservations} />;
+    content = (
+      <ReservationLedger
+        reservations={reservations}
+        isSubmitting={isSubmitting}
+        onCheckIn={(reservation) =>
+          void changeReservationState(reservation, "check-in")
+        }
+        onComplete={(reservation) =>
+          void changeReservationState(reservation, "complete")
+        }
+      />
+    );
   if (activeNav === "Walk-ins")
     content = (
       <section className="host-task-panel">

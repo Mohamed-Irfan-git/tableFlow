@@ -35,5 +35,10 @@ class ReservationPublic(BaseModel):
     notes: str | None
 
 
+class HostReservationPublic(ReservationPublic):
+    can_check_in: bool
+    can_complete: bool
+
+
 class ReservationCancellation(BaseModel):
     reason: str | None = Field(default=None, max_length=1000)

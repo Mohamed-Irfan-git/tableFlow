@@ -1,4 +1,5 @@
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -9,11 +10,17 @@ from app.db.session import get_db
 from app.models import Restaurant, RestaurantTable, Role, TableStatus, User
 from app.realtime.hub import event_hub
 from app.schemas.restaurants import TableFloorInfo, TablePublic, TableStatusUpdate
-from app.services.reservations import find_available_tables, find_reserved_table_ids
+from app.services.reservations import (
+    complete_active_reservations_for_table,
+    find_available_tables,
+    find_reserved_table_ids,
+)
 from app.services.table_status import (
+    clear_expired_unavailability,
     current_table_statuses,
-    has_current_or_future_reservation,
+    reservation_overlaps_window,
     restaurant_now,
+    unavailable_for_slot,
 )
 
 router = APIRouter(prefix="/tables", tags=["tables"])
@@ -28,16 +35,21 @@ def floor_availability(
     guest_count: int = Query(ge=1, le=20),
     db: Session = Depends(get_db),
 ) -> list[dict]:
-    """Public floor plan data: every non-UNAVAILABLE table with a slot-specific status."""
-    # Get all non-unavailable tables for this restaurant
+    """Public floor plan data with availability evaluated for the selected slot."""
+    restaurant = db.get(Restaurant, restaurant_id)
+    if restaurant is None:
+        return []
+    slot_datetime = datetime.combine(reservation_date, slot_start).replace(
+        tzinfo=ZoneInfo(restaurant.timezone)
+    )
+
+    # Keep unavailable tables visible so guests can see the actual floor state.
     all_tables = list(
         db.scalars(
             select(RestaurantTable)
-            .where(
-                RestaurantTable.restaurant_id == restaurant_id,
-                RestaurantTable.status != TableStatus.UNAVAILABLE,
-            )
+            .where(RestaurantTable.restaurant_id == restaurant_id)
             .order_by(RestaurantTable.number)
+            .with_for_update()
         ).all()
     )
 
@@ -65,6 +77,8 @@ def floor_availability(
         return "round" if capacity <= 2 or capacity == 4 else "wide"
 
     def slot_status(table: RestaurantTable) -> str:
+        if unavailable_for_slot(table, slot_start=slot_datetime):
+            return TableStatus.UNAVAILABLE.value
         if table.id in reserved_for_slot:
             return "RESERVED"
         return "AVAILABLE"
@@ -102,6 +116,15 @@ def list_tables(
         return []
 
     now = restaurant_now(restaurant.timezone)
+    expired = [
+        table
+        for table in tables
+        if clear_expired_unavailability(table, now=now)
+    ]
+    if expired:
+        db.commit()
+        for table in expired:
+            db.refresh(table)
     effective_statuses = current_table_statuses(db, tables=tables, now=now)
     result = []
     for table in tables:
@@ -130,16 +153,45 @@ async def update_table_status(
             status_code=422,
             detail="Reserved status is managed by confirmed reservations",
         )
+    restaurant = db.get(Restaurant, table.restaurant_id)
+    now = restaurant_now(restaurant.timezone if restaurant else "Asia/Colombo")
+    clear_expired_unavailability(table, now=now)
+
+    if payload.status == TableStatus.OCCUPIED and table.id in find_reserved_table_ids(
+        db,
+        reservation_date=now.date(),
+        slot_start=now.time().replace(tzinfo=None),
+        table_ids=[table.id],
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Check in the overlapping reservation instead of manually occupying this table.",
+        )
+
     if payload.status == TableStatus.UNAVAILABLE:
-        restaurant = db.get(Restaurant, table.restaurant_id)
-        now = restaurant_now(restaurant.timezone if restaurant else "Asia/Colombo")
-        if has_current_or_future_reservation(db, table_id=table.id, now=now):
+        if table.status == TableStatus.OCCUPIED:
             raise HTTPException(
                 status_code=409,
-                detail="This table has an active reservation. Move or cancel it before marking the table unavailable.",
+                detail="Release the occupied table before marking it unavailable.",
             )
-
-    table.status = payload.status
+        unavailable_until = now + timedelta(minutes=payload.unavailable_for_minutes or 0)
+        if reservation_overlaps_window(
+            db,
+            table_id=table.id,
+            starts_at=now,
+            ends_at=unavailable_until,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="This unavailable period overlaps a reservation. Choose a shorter duration or move the booking.",
+            )
+        table.status = TableStatus.UNAVAILABLE
+        table.unavailable_until = unavailable_until.astimezone(ZoneInfo("UTC"))
+    else:
+        if payload.status == TableStatus.AVAILABLE:
+            complete_active_reservations_for_table(db, table_id=table.id)
+        table.status = payload.status
+        table.unavailable_until = None
     db.commit()
     db.refresh(table)
     restaurant = db.get(Restaurant, table.restaurant_id)

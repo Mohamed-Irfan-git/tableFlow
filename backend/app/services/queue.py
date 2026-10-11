@@ -11,7 +11,7 @@ from app.models import (
     User,
 )
 from app.services.reservations import find_reserved_table_ids
-from app.services.table_status import restaurant_now
+from app.services.table_status import clear_expired_unavailability, restaurant_now
 
 
 class QueueWorkflowError(Exception):
@@ -49,7 +49,12 @@ def add_to_queue(
 
 
 def call_queue_entry(db: Session, *, entry_id: int) -> QueueEntry:
-    entry = db.scalar(select(QueueEntry).where(QueueEntry.id == entry_id).with_for_update())
+    entry = db.scalar(
+        select(QueueEntry)
+        .where(QueueEntry.id == entry_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if entry is None:
         raise LookupError("Queue entry not found")
     if entry.status not in {QueueStatus.WAITING, QueueStatus.CALLED}:
@@ -66,18 +71,25 @@ def seat_queue_entry(
     table_id: int,
     assigned_by: User,
 ) -> tuple[QueueEntry, RestaurantTable]:
-    entry = db.scalar(select(QueueEntry).where(QueueEntry.id == entry_id).with_for_update())
+    entry_ref = db.get(QueueEntry, entry_id)
+    if entry_ref is None:
+        raise LookupError("Queue entry not found")
+
+    # Lock the candidate table before changing the queue assignment, matching the
+    # reservation workflow's table-first lock order.
     table = db.scalar(select(RestaurantTable).where(RestaurantTable.id == table_id).with_for_update())
+    entry = db.scalar(select(QueueEntry).where(QueueEntry.id == entry_id).with_for_update())
     if entry is None:
         raise LookupError("Queue entry not found")
     if table is None or table.restaurant_id != entry.restaurant_id:
         raise QueueWorkflowError("Choose a table in the same restaurant")
     if entry.status not in {QueueStatus.WAITING, QueueStatus.CALLED}:
         raise QueueWorkflowError("Only active queue entries can be seated")
-    if table.status != TableStatus.AVAILABLE:
-        raise QueueWorkflowError("Choose an available table")
     restaurant = db.get(Restaurant, entry.restaurant_id)
     now = restaurant_now(restaurant.timezone if restaurant else "Asia/Colombo")
+    clear_expired_unavailability(table, now=now)
+    if table.status != TableStatus.AVAILABLE:
+        raise QueueWorkflowError("Choose an available table")
     reserved_tables = find_reserved_table_ids(
         db,
         reservation_date=now.date(),
@@ -91,6 +103,7 @@ def seat_queue_entry(
 
     entry.status = QueueStatus.SEATED
     table.status = TableStatus.OCCUPIED
+    table.unavailable_until = None
     db.add(SeatingRecord(table_id=table.id, queue_entry_id=entry.id, assigned_by_id=assigned_by.id))
     db.flush()
     return entry, table

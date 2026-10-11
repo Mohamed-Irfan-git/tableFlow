@@ -1207,6 +1207,22 @@ a {
     border-color 0.2s,
     box-shadow 0.2s;
 }
+.floor-table.available {
+  border-color: #21543c;
+  background: linear-gradient(135deg, #387a59, #21543c);
+}
+.floor-table.reserved {
+  border-color: #4e380c;
+  background: linear-gradient(135deg, #86651d, #5c4310);
+}
+.floor-table.occupied {
+  border-color: #612b1b;
+  background: linear-gradient(135deg, #a04d36, #733522);
+}
+.floor-table.unavailable {
+  border-color: #373833;
+  background: linear-gradient(135deg, #62635e, #42433f);
+}
 .floor-table:hover,
 .floor-table.selected {
   transform: translateY(-4px);
@@ -1456,6 +1472,24 @@ a {
 }
 .table-status-controls .table-status-help {
   color: #807b6f;
+}
+.table-unavailable-duration {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.9fr);
+  align-items: center;
+  gap: 9px;
+  color: #716c62;
+  font-size: 11px;
+}
+.table-unavailable-duration select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid #d7cdbb;
+  border-radius: 0;
+  color: #453b2d;
+  background: #fffefa;
+  font: 11px var(--sans);
 }
 .assign-table svg {
   width: 14px;
@@ -1864,7 +1898,13 @@ a {
     font-size: 8px;
   }
   .floor-table em {
-    display: none;
+    position: static;
+    max-width: calc(100% - 6px);
+    overflow: hidden;
+    padding: 2px 4px;
+    font-size: 7px;
+    line-height: 1;
+    text-overflow: ellipsis;
   }
   .table-inspector {
     padding-bottom: 4px;
@@ -1892,7 +1932,16 @@ a {
     display: none;
   }
 }
-@media (min-width: 591px) and (max-width: 720px) {
+@media (min-width: 901px) and (max-width: 1250px) {
+  .floor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table-inspector {
+    border-top: 1px solid #ded6c8;
+    padding-top: 25px;
+  }
+}
+@media (min-width: 591px) and (max-width: 1250px) {
   .floor-map {
     min-height: 410px;
   }
@@ -1929,9 +1978,10 @@ a {
   .floor-table--8 { left: 40%; right: auto; }
   .floor-table--9 { right: 7%; bottom: auto; left: auto; }
   .floor-table--10 {
-    bottom: 7%;
+    top: 73%;
     left: 50%;
     right: auto;
+    bottom: auto;
     transform: translateX(-50%);
   }
   .floor-table--10.selected,
@@ -2036,9 +2086,10 @@ a {
     left: auto;
   }
   .floor-table--10 {
-    bottom: 7%;
+    top: 73%;
     left: 50%;
     right: auto;
+    bottom: auto;
     transform: translateX(-50%);
   }
   .floor-table--10.selected,
@@ -3384,7 +3435,7 @@ a {
 }
 .reservation-ledger article {
   display: grid;
-  grid-template-columns: 150px minmax(180px, 1fr) 68px 88px;
+  grid-template-columns: 150px minmax(180px, 1fr) 68px 88px auto;
   align-items: center;
   gap: 18px;
   min-height: 74px;
@@ -3421,6 +3472,27 @@ a {
   font-size: 10px;
   font-weight: 600;
   text-align: right;
+}
+.reservation-ledger__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.reservation-ledger__actions button {
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid #806029;
+  color: #453b2d;
+  background: transparent;
+  font: 600 10px var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.reservation-ledger__actions button:hover:not(:disabled) {
+  background: rgba(207, 173, 109, 0.14);
+}
+.reservation-ledger__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 .service-report__rows {
   margin-top: 21px;
@@ -3471,11 +3543,14 @@ a {
     padding: 20px;
   }
   .reservation-ledger article {
-    grid-template-columns: 125px minmax(140px, 1fr) 55px;
+    grid-template-columns: 125px minmax(140px, 1fr) 55px auto;
     gap: 12px;
   }
   .reservation-ledger article small {
-    display: none;
+    grid-column: 3;
+  }
+  .reservation-ledger__actions {
+    grid-column: 4;
   }
 }
 @media (max-width: 590px) {
@@ -3513,9 +3588,27 @@ a {
     grid-column: 2;
     grid-row: 2;
   }
-  .reservation-ledger article div {
+  .reservation-ledger article > div:not(.reservation-ledger__actions) {
     grid-column: 1;
     grid-row: 2;
+  }
+  .reservation-ledger article small {
+    display: block;
+    grid-column: 1;
+    grid-row: 3;
+    text-align: left;
+  }
+  .reservation-ledger__actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    justify-content: stretch;
+  }
+  .reservation-ledger__actions button {
+    width: 100%;
+    min-height: 42px;
+  }
+  .table-unavailable-duration {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3532,6 +3625,7 @@ a {
   }
   .host-sidebar nav {
     display: flex;
+    flex-direction: row;
     grid-column: 1 / -1;
     grid-row: 2;
     gap: 6px;
