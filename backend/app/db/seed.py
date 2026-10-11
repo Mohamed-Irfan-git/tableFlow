@@ -11,14 +11,14 @@ from app.models import Restaurant, RestaurantTable, Role, TableStatus, User
 DEMO_TABLES = (
     ("T01", 2, TableStatus.AVAILABLE, "Window"),
     ("T02", 4, TableStatus.AVAILABLE, "Main dining"),
-    ("T03", 6, TableStatus.OCCUPIED, "Main dining"),
-    ("T04", 2, TableStatus.UNAVAILABLE, "Bar"),
+    ("T03", 6, TableStatus.AVAILABLE, "Main dining"),
+    ("T04", 2, TableStatus.AVAILABLE, "Bar"),
     ("T05", 6, TableStatus.AVAILABLE, "Main dining"),
-    ("T06", 4, TableStatus.RESERVED, "Kitchen side"),
-    ("T07", 6, TableStatus.OCCUPIED, "Private corner"),
+    ("T06", 4, TableStatus.AVAILABLE, "Kitchen side"),
+    ("T07", 6, TableStatus.AVAILABLE, "Private corner"),
     ("T08", 4, TableStatus.AVAILABLE, "Terrace"),
     ("T09", 4, TableStatus.AVAILABLE, "Terrace"),
-    ("T10", 8, TableStatus.UNAVAILABLE, "Private dining"),
+    ("T10", 8, TableStatus.AVAILABLE, "Private dining"),
 )
 
 

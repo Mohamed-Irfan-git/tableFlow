@@ -16,3 +16,16 @@ class TablePublic(BaseModel):
 
 class TableStatusUpdate(BaseModel):
     status: TableStatus
+
+
+class TableFloorInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    number: str
+    capacity: int
+    location: str | None
+    shape: str
+    status: str
+    available: bool
+    fits_party: bool

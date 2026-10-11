@@ -10,6 +10,8 @@ from app.models import (
     TableStatus,
     User,
 )
+from app.services.reservations import find_reserved_table_ids
+from app.services.table_status import restaurant_now
 
 
 class QueueWorkflowError(Exception):
@@ -74,6 +76,16 @@ def seat_queue_entry(
         raise QueueWorkflowError("Only active queue entries can be seated")
     if table.status != TableStatus.AVAILABLE:
         raise QueueWorkflowError("Choose an available table")
+    restaurant = db.get(Restaurant, entry.restaurant_id)
+    now = restaurant_now(restaurant.timezone if restaurant else "Asia/Colombo")
+    reserved_tables = find_reserved_table_ids(
+        db,
+        reservation_date=now.date(),
+        slot_start=now.time().replace(tzinfo=None),
+        table_ids=[table.id],
+    )
+    if table.id in reserved_tables:
+        raise QueueWorkflowError("This table is reserved for an overlapping time slot")
     if table.capacity < entry.guest_count:
         raise QueueWorkflowError("Table does not fit this party")
 

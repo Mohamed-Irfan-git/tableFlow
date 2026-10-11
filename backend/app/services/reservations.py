@@ -1,6 +1,6 @@
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,17 +11,61 @@ class ReservationConflictError(Exception):
     """Raised when no compatible table can be secured for an arrival slot."""
 
 
+def _slot_overlap_filters(reservation_date: date, slot_start: time):
+    requested_start = datetime.combine(reservation_date, slot_start)
+    window_start = requested_start - timedelta(hours=1)
+    window_end = requested_start + timedelta(hours=1)
+    return (
+        Reservation.reservation_date >= window_start.date(),
+        Reservation.reservation_date <= window_end.date(),
+        or_(
+            Reservation.reservation_date > window_start.date(),
+            and_(
+                Reservation.reservation_date == window_start.date(),
+                Reservation.slot_start > window_start.time(),
+            ),
+        ),
+        or_(
+            Reservation.reservation_date < window_end.date(),
+            and_(
+                Reservation.reservation_date == window_end.date(),
+                Reservation.slot_start < window_end.time(),
+            ),
+        ),
+        Reservation.status.in_(
+            (ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN)
+        ),
+    )
+
+
+def find_reserved_table_ids(
+    db: Session,
+    *,
+    reservation_date: date,
+    slot_start: time,
+    table_ids: list[int],
+) -> set[int]:
+    if not table_ids:
+        return set()
+    return set(
+        db.scalars(
+            select(Reservation.table_id).where(
+                Reservation.table_id.in_(table_ids),
+                *_slot_overlap_filters(reservation_date, slot_start),
+            )
+        ).all()
+    )
+
+
 def _candidate_tables(
     restaurant_id: int,
     reservation_date: date,
     slot_start: time,
     guest_count: int,
 ) -> Select[tuple[RestaurantTable]]:
-    occupied_slot = select(Reservation.id).where(
+    overlapping_reservation = select(Reservation.id).where(
         Reservation.table_id == RestaurantTable.id,
-        Reservation.reservation_date == reservation_date,
-        Reservation.slot_start == slot_start,
-        Reservation.status.in_((ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN)),
+        *_slot_overlap_filters(reservation_date, slot_start),
     )
     return (
         select(RestaurantTable)
@@ -29,7 +73,7 @@ def _candidate_tables(
             RestaurantTable.restaurant_id == restaurant_id,
             RestaurantTable.capacity >= guest_count,
             RestaurantTable.status != TableStatus.UNAVAILABLE,
-            ~occupied_slot.exists(),
+            ~overlapping_reservation.exists(),
         )
         .order_by(RestaurantTable.capacity.asc(), RestaurantTable.number.asc())
     )

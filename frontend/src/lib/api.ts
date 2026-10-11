@@ -104,3 +104,30 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
+
+/* ── Floor plan availability ── */
+
+export type TableFloorInfo = {
+  id: number;
+  number: string;
+  capacity: number;
+  location: string | null;
+  shape: "round" | "wide";
+  status: "AVAILABLE" | "RESERVED" | "OCCUPIED" | "UNAVAILABLE";
+  available: boolean;
+  fits_party: boolean;
+};
+
+export function fetchFloorAvailability(
+  reservationDate: string,
+  slotStart: string,
+  guestCount: number,
+): Promise<TableFloorInfo[]> {
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    reservation_date: reservationDate,
+    slot_start: slotStart,
+    guest_count: String(guestCount),
+  });
+  return apiRequest<TableFloorInfo[]>(`/tables/floor?${params}`);
+}

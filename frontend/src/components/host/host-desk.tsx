@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   FormEvent,
   useCallback,
   useEffect,
@@ -23,8 +24,12 @@ import {
   X,
 } from "lucide-react";
 import { apiRequest, restaurantId } from "@/lib/api";
+import { useRealtime } from "@/hooks/use-realtime";
+import type { RealtimeEvent } from "@/hooks/use-realtime";
+
 
 type ApiTableStatus = "AVAILABLE" | "RESERVED" | "OCCUPIED" | "UNAVAILABLE";
+type EditableTableStatus = Exclude<ApiTableStatus, "RESERVED">;
 type ApiTable = {
   id: number;
   number: string;
@@ -132,25 +137,36 @@ function reservationMoment(reservation: Reservation) {
 function FloorBoard({
   tables,
   queue,
+  reservations,
   selectedTableId,
   isSubmitting,
   onSelectTable,
   onClearTable,
   onSeatParty,
+  onUpdateTableStatus,
 }: {
   tables: ApiTable[];
   queue: QueueEntry[];
+  reservations: Reservation[];
   selectedTableId: number | null;
   isSubmitting: boolean;
   onSelectTable: (tableId: number) => void;
   onClearTable: () => void;
   onSeatParty: (entry: QueueEntry, table: ApiTable) => void;
+  onUpdateTableStatus: (table: ApiTable, status: EditableTableStatus) => void;
 }) {
   const selectedTable =
     tables.find((table) => table.id === selectedTableId) ?? null;
   const nextParty = selectedTable
     ? queue.find((entry) => entry.guest_count <= selectedTable.capacity)
     : undefined;
+  const hasActiveReservation = selectedTable
+    ? reservations.some(
+        (reservation) => reservation.table_number === selectedTable.number,
+      )
+    : false;
+  const dynamicRows = Math.ceil(tables.length / 3);
+  const floorMinHeight = tables.length <= 10 ? 470 : 280 + dynamicRows * 65;
   return (
     <section className="floor-shell">
       <div className="floor-heading">
@@ -171,11 +187,16 @@ function FloorBoard({
             <i className="occupied" />
             Occupied
           </span>
+          <span>
+            <i className="unavailable" />
+            Unavailable
+          </span>
         </div>
       </div>
       <div className="floor-layout">
         <div
           className="floor-map"
+          style={{ minHeight: `${floorMinHeight}px` }}
           aria-label="Interactive restaurant floor overview, including main dining, window seating, terrace, service pass, and host stand"
         >
           <span className="floor-zone floor-zone--window" aria-hidden="true">
@@ -195,18 +216,32 @@ function FloorBoard({
           </span>
           <span className="floor-aisle floor-aisle--one" aria-hidden="true" />
           <span className="floor-aisle floor-aisle--two" aria-hidden="true" />
-          {tables.map((table) => (
+          {tables.map((table, index) => {
+            const hasPosition = Boolean(tablePositions[table.number]);
+            const desktopRows = Math.ceil(tables.length / 4);
+            const mobileRows = Math.ceil(tables.length / 3);
+            const desktopRow = Math.floor(index / 4);
+            const mobileRow = Math.floor(index / 3);
+            const dynamicPosition: CSSProperties = {
+              "--floor-table-left": `${7 + (index % 4) * 23}%`,
+              "--floor-table-top": `${12 + (desktopRows > 1 ? (55 * desktopRow) / (desktopRows - 1) : 0)}%`,
+              "--floor-table-mobile-left": `${7 + (index % 3) * 30}%`,
+              "--floor-table-mobile-top": `${8 + (mobileRows > 1 ? (72 * mobileRow) / (mobileRows - 1) : 0)}%`,
+            } as CSSProperties;
+            return (
             <button
               key={table.id}
               onClick={() => onSelectTable(table.id)}
-              className={`floor-table ${table.capacity <= 2 || table.capacity === 6 ? "round" : "wide"} ${table.capacity >= 6 ? "floor-table--large" : ""} ${tablePositions[table.number] ?? ""} ${table.status.toLowerCase()} ${selectedTable?.id === table.id ? "selected" : ""}`}
+              style={hasPosition ? undefined : dynamicPosition}
+              className={`floor-table ${table.capacity <= 2 || table.capacity === 6 ? "round" : "wide"} ${table.capacity >= 6 ? "floor-table--large" : ""} ${tablePositions[table.number] ?? "floor-table--dynamic"} ${table.status.toLowerCase()} ${selectedTable?.id === table.id ? "selected" : ""}`}
               aria-label={`${table.number}, ${table.capacity} seats, ${displayStatus(table.status)}${table.location ? `, ${table.location}` : ""}`}
             >
               <strong>{table.number}</strong>
               <span>{table.capacity} seats</span>
               <em>{displayStatus(table.status)}</em>
             </button>
-          ))}
+            );
+          })}
         </div>
         <aside className="table-inspector">
           {selectedTable ? (
@@ -246,8 +281,52 @@ function FloorBoard({
                     ? `Seat ${nextParty.customer_name} · ${nextParty.guest_count} guests`
                     : selectedTable.status === "AVAILABLE"
                       ? "No compatible party is waiting"
+                      : selectedTable.status === "RESERVED"
+                        ? "Reserved for an overlapping time slot"
                       : "Table is not ready for seating"}
                 </strong>
+              </div>
+              <div
+                className="table-status-controls"
+                role="group"
+                aria-label="Change table status"
+              >
+                <span>Table status</span>
+                <div>
+                  {(
+                    [
+                      ["AVAILABLE", "Mark available"],
+                      ["OCCUPIED", "Mark occupied"],
+                      ["UNAVAILABLE", "Mark unavailable"],
+                    ] as const
+                  ).map(([status, label]) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className={selectedTable.status === status ? "active" : ""}
+                      disabled={
+                        isSubmitting ||
+                        selectedTable.status === status ||
+                        (status === "AVAILABLE" &&
+                          selectedTable.status === "RESERVED") ||
+                        (status === "UNAVAILABLE" && hasActiveReservation)
+                      }
+                      onClick={() => onUpdateTableStatus(selectedTable, status)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <small className="table-status-help">
+                  Reserved follows the booking time. Mark available after guests
+                  leave or an issue is fixed.
+                </small>
+                {hasActiveReservation && (
+                  <small>
+                    An active reservation is assigned here. Move or cancel it
+                    before marking this table unavailable.
+                  </small>
+                )}
               </div>
               <button
                 className="assign-table"
@@ -539,6 +618,43 @@ export function HostDesk() {
     return () => window.clearTimeout(timer);
   }, [accessDenied, loadDesk, session]);
 
+  useEffect(() => {
+    if (!session || accessDenied) return;
+    const timer = window.setInterval(
+      () => void loadDesk(session.accessToken),
+      30_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [accessDenied, loadDesk, session]);
+
+  // WebSocket real-time updates
+  const handleRealtimeEvent = useCallback(
+    (event: RealtimeEvent) => {
+      if (!session) return;
+      if (event.type === "table.updated" && event.table_id && event.status) {
+        void loadDesk(session.accessToken);
+      } else if (
+        event.type === "reservation.created" ||
+        event.type === "reservation.cancelled"
+      ) {
+        void loadDesk(session.accessToken);
+      } else if (
+        event.type === "queue.created" ||
+        event.type === "queue.called" ||
+        event.type === "queue.seated"
+      ) {
+        void loadDesk(session.accessToken);
+      }
+    },
+    [session, loadDesk],
+  );
+
+  const { connected: wsConnected } = useRealtime(
+    restaurantId,
+    session?.accessToken ?? null,
+    handleRealtimeEvent,
+  );
+
   const login = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -641,6 +757,40 @@ export function HostDesk() {
     }
   };
 
+  const updateTableStatus = async (
+    table: ApiTable,
+    status: EditableTableStatus,
+  ) => {
+    if (!session) return;
+    setIsSubmitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const updatedTable = await apiRequest<ApiTable>(
+        `/tables/${table.id}/status`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+          body: JSON.stringify({ status }),
+        },
+      );
+      setTables((current) =>
+        current.map((item) =>
+          item.id === updatedTable.id ? updatedTable : item,
+        ),
+      );
+      setNotice(`${updatedTable.number} marked ${displayStatus(status).toLowerCase()}.`);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to update this table.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const chooseView = (view: HostView) => {
     setActiveNav(view);
     if (view === "Walk-ins") setShowWalkIn(true);
@@ -696,11 +846,15 @@ export function HostDesk() {
     <FloorBoard
       tables={tables}
       queue={queue}
+      reservations={reservations}
       selectedTableId={selectedTableId}
       isSubmitting={isSubmitting}
       onSelectTable={setSelectedTableId}
       onClearTable={() => setSelectedTableId(null)}
       onSeatParty={(entry, table) => void seatParty(entry, table)}
+      onUpdateTableStatus={(table, status) =>
+        void updateTableStatus(table, status)
+      }
     />
   );
   const queueList = (
@@ -804,8 +958,9 @@ export function HostDesk() {
               <RefreshCw className={isLoading ? "is-spinning" : ""} />{" "}
               {isLoading ? "Refreshing" : "Refresh"}
             </button>
-            <span className="live-status">
-              <i /> Live data connected
+            <span className={`live-status ${wsConnected ? "" : "live-status--disconnected"}`}>
+              <i />
+              {wsConnected ? "Live data connected" : "Reconnecting…"}
             </span>
             <button
               className="add-walkin"

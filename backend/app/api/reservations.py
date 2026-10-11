@@ -1,12 +1,12 @@
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, get_optional_user, require_roles
 from app.db.session import get_db
-from app.models import Reservation, ReservationStatus, RestaurantTable, Role, User
+from app.models import Reservation, ReservationStatus, Restaurant, RestaurantTable, Role, User
 from app.realtime.hub import event_hub
 from app.schemas.reservations import (
     ReservationCancellation,
@@ -20,6 +20,7 @@ from app.services.reservations import (
     create_reservation,
     find_available_tables,
 )
+from app.services.table_status import restaurant_now
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -30,14 +31,19 @@ def list_for_host(
     user: User = Depends(require_roles(Role.HOST, Role.MANAGER, Role.ADMIN)),
     db: Session = Depends(get_db),
 ) -> list[Reservation]:
-    """Return active reservations for the host desk, ordered by arrival."""
+    """Return current and future reservations for the host desk."""
     del user  # Authorization is enforced by the dependency above.
-    return list(
+    restaurant = db.get(Restaurant, restaurant_id)
+    if restaurant is None:
+        return []
+    now = restaurant_now(restaurant.timezone)
+    active = list(
         db.scalars(
             select(Reservation)
             .join(Reservation.table)
             .where(
                 RestaurantTable.restaurant_id == restaurant_id,
+                Reservation.reservation_date >= (now - timedelta(hours=1)).date(),
                 Reservation.status.in_(
                     (ReservationStatus.CONFIRMED, ReservationStatus.CHECKED_IN)
                 ),
@@ -45,18 +51,24 @@ def list_for_host(
             .order_by(Reservation.reservation_date.asc(), Reservation.slot_start.asc())
         ).all()
     )
+    return [
+        reservation
+        for reservation in active
+        if datetime.combine(reservation.reservation_date, reservation.slot_start)
+        .replace(tzinfo=now.tzinfo)
+        + timedelta(hours=1)
+        > now
+    ]
 
 
 @router.get("/availability", response_model=list[TablePublic])
 def availability(
-    restaurant_id: int,
-    reservation_date: date,
-    slot_start: time,
-    guest_count: int,
+    restaurant_id: int = Query(gt=0),
+    reservation_date: date = Query(...),
+    slot_start: time = Query(...),
+    guest_count: int = Query(ge=1, le=20),
     db: Session = Depends(get_db),
 ) -> list[RestaurantTable]:
-    if guest_count < 1 or guest_count > 20:
-        raise HTTPException(status_code=422, detail="Guest count must be between 1 and 20")
     return find_available_tables(
         db,
         restaurant_id=restaurant_id,

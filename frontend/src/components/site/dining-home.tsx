@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -27,7 +33,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { apiRequest, restaurantId } from "@/lib/api";
+import { apiRequest, restaurantId, fetchFloorAvailability } from "@/lib/api";
+import type { TableFloorInfo } from "@/lib/api";
+import { RestaurantFloor } from "@/components/site/restaurant-floor";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -59,12 +67,41 @@ const menuItems = [
 ];
 
 const times = ["5:30 PM", "7:00 PM", "8:30 PM"];
-const defaultReservationDate = "2026-10-16";
 const slotStarts: Record<string, string> = {
   "5:30 PM": "17:30:00",
   "7:00 PM": "19:00:00",
   "8:30 PM": "20:30:00",
 };
+
+function restaurantDateOffset(offset: number) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Colombo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const date = new Date(
+    Date.UTC(
+      Number(value("year")),
+      Number(value("month")) - 1,
+      Number(value("day")),
+    ),
+  );
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function subscribeToRestaurantDate(notify: () => void) {
+  const timer = window.setInterval(notify, 60_000);
+  return () => window.clearInterval(timer);
+}
+
+const getRestaurantToday = () => restaurantDateOffset(0);
+const getRestaurantTomorrow = () => restaurantDateOffset(1);
+const getServerToday = () => "";
+const getServerReservationDate = () => "2026-10-16";
 
 type ReservationResult = { id: number; table_number: string };
 type AvailableTable = {
@@ -155,9 +192,22 @@ export function DiningHome() {
   const pageRef = useRef<HTMLDivElement>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [reservationDate, setReservationDate] = useState(
-    defaultReservationDate,
+  const todayDate = useSyncExternalStore(
+    subscribeToRestaurantDate,
+    getRestaurantToday,
+    getServerToday,
   );
+  const defaultReservationDate = useSyncExternalStore(
+    subscribeToRestaurantDate,
+    getRestaurantTomorrow,
+    getServerReservationDate,
+  );
+  const [selectedReservationDate, setSelectedReservationDate] =
+    useState<string | null>(null);
+  const reservationDate =
+    selectedReservationDate && selectedReservationDate >= todayDate
+      ? selectedReservationDate
+      : defaultReservationDate;
   const [selectedTime, setSelectedTime] = useState("7:00 PM");
   const [guestCount, setGuestCount] = useState(2);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -176,6 +226,7 @@ export function DiningHome() {
   const [reservationError, setReservationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableTables, setAvailableTables] = useState<AvailableTable[]>([]);
+  const [floorTables, setFloorTables] = useState<TableFloorInfo[]>([]);
   const [availabilityError, setAvailabilityError] = useState<string | null>(
     null,
   );
@@ -247,12 +298,7 @@ export function DiningHome() {
     if (!sheetOpen || reservationMade || reservationStep !== "table") return;
 
     let current = true;
-    const query = new URLSearchParams({
-      restaurant_id: String(restaurantId),
-      reservation_date: reservationDate,
-      slot_start: slotStarts[selectedTime],
-      guest_count: String(guestCount),
-    });
+    const slotValue = slotStarts[selectedTime];
 
     const loadAvailability = async () => {
       await Promise.resolve();
@@ -260,18 +306,30 @@ export function DiningHome() {
       setIsLoadingAvailability(true);
       setAvailabilityError(null);
       try {
-        const tables = await apiRequest<AvailableTable[]>(
-          `/reservations/availability?${query.toString()}`,
+        const floor = await fetchFloorAvailability(
+          reservationDate,
+          slotValue,
+          guestCount,
         );
         if (!current) return;
-        setAvailableTables(tables);
+        setFloorTables(floor);
+        const available = floor.filter((t) => t.available && t.fits_party);
+        setAvailableTables(
+          available.map((t) => ({
+            id: t.id,
+            number: t.number,
+            capacity: t.capacity,
+            location: t.location,
+          })),
+        );
         setPreferredTableId((selected) =>
-          selected && tables.some((table) => table.id === selected)
+          selected && available.some((t) => t.id === selected)
             ? selected
             : null,
         );
       } catch (error) {
         if (!current) return;
+        setFloorTables([]);
         setAvailableTables([]);
         setAvailabilityError(
           error instanceof Error
@@ -284,8 +342,34 @@ export function DiningHome() {
     };
     void loadAvailability();
 
+    // Poll every 10 seconds for fresh availability while floor plan is visible
+    const pollId = setInterval(() => {
+      if (!current) return;
+      fetchFloorAvailability(reservationDate, slotValue, guestCount)
+        .then((floor) => {
+          if (!current) return;
+          setFloorTables(floor);
+          const available = floor.filter((t) => t.available && t.fits_party);
+          setAvailableTables(
+            available.map((t) => ({
+              id: t.id,
+              number: t.number,
+              capacity: t.capacity,
+              location: t.location,
+            })),
+          );
+          setPreferredTableId((selected) =>
+            selected && available.some((t) => t.id === selected)
+              ? selected
+              : null,
+          );
+        })
+        .catch(() => { /* silent poll failure */ });
+    }, 10_000);
+
     return () => {
       current = false;
+      clearInterval(pollId);
     };
   }, [
     guestCount,
@@ -998,10 +1082,10 @@ export function DiningHome() {
                           <span>Date</span>
                           <input
                             type="date"
-                            min="2026-10-10"
+                            min={todayDate || undefined}
                             value={reservationDate}
                             onChange={(event) =>
-                              setReservationDate(event.target.value)
+                              setSelectedReservationDate(event.target.value)
                             }
                           />
                         </label>
@@ -1143,66 +1227,21 @@ export function DiningHome() {
                           We couldn’t refresh the table list. You can still ask
                           TableFlow to find the best fit.
                         </p>
-                      ) : availableTables.length === 0 ? (
+                      ) : floorTables.length === 0 ? (
                         <p className="table-choice__status">
                           No tables are open for this moment. Try another time
                           or party size.
                         </p>
                       ) : (
-                        <div
-                          className="table-options"
-                          role="radiogroup"
-                          aria-label="Available tables"
-                        >
-                          <button
-                            type="button"
-                            role="radio"
-                            aria-checked={preferredTableId === null}
-                            className={`table-option table-option--auto ${preferredTableId === null ? "selected" : ""}`}
-                            onClick={() => {
-                              setPreferredTableId(null);
-                              setReservationError(null);
-                            }}
-                          >
-                            <span>
-                              <b>Let TableFlow choose</b>
-                              <small>Best fit for your party</small>
-                            </span>
-                            {preferredTableId === null ? (
-                              <Check aria-hidden="true" />
-                            ) : (
-                              <span className="table-option__select">Auto</span>
-                            )}
-                          </button>
-                          {availableTables.map((table) => (
-                            <button
-                              type="button"
-                              role="radio"
-                              aria-checked={preferredTableId === table.id}
-                              key={table.id}
-                              className={`table-option ${preferredTableId === table.id ? "selected" : ""}`}
-                              onClick={() => {
-                                setPreferredTableId(table.id);
-                                setReservationError(null);
-                              }}
-                            >
-                              <span>
-                                <b>{table.number}</b>
-                                <small>
-                                  {table.location ?? "Dining room"} · seats{" "}
-                                  {table.capacity}
-                                </small>
-                              </span>
-                              {preferredTableId === table.id ? (
-                                <Check aria-hidden="true" />
-                              ) : (
-                                <span className="table-option__select">
-                                  Select
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
+                        <RestaurantFloor
+                          tables={floorTables}
+                          selectedTableId={preferredTableId}
+                          guestCount={guestCount}
+                          onSelectTable={(id) => {
+                            setPreferredTableId(id);
+                            setReservationError(null);
+                          }}
+                        />
                       )}
                       <div className="table-choice__footer">
                         {reservationError && (
