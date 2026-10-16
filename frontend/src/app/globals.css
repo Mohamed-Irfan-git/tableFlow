@@ -3677,3 +3677,49 @@ a {
     border: 0;
   }
 }
+
+
+/* Queue Position & Call Customer Feature */
+
+.queue-position {
+  display: block;
+  margin-top: 5px;
+  color: #94784a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.queue-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.queue-actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #d5b56d;
+  background: #e9ce91;
+  color: #241a0b;
+  font: inherit;
+  cursor: pointer;
+}
+
+.queue-actions .queue-call {
+  background: transparent;
+  color: #594829;
+  border-color: #cbb98f;
+}
+
+.queue-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.queue-actions button:focus-visible {
+  outline: 2px solid #94784a;
+  outline-offset: 2px;
+}
+

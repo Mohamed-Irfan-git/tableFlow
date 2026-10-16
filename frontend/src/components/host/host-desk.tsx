@@ -394,6 +394,7 @@ function QueueList({
   tables,
   isSubmitting,
   onSeatParty,
+  onCallParty,
   onViewQueue,
   title = "Waiting queue",
 }: {
@@ -401,9 +402,21 @@ function QueueList({
   tables: ApiTable[];
   isSubmitting: boolean;
   onSeatParty: (entry: QueueEntry, table: ApiTable) => void;
+  onCallParty: (entry: QueueEntry) => void;
   onViewQueue?: () => void;
   title?: string;
 }) {
+  
+const waitingPositions = new globalThis.Map<number, number>(
+  queue
+    .filter((entry) => entry.status === "WAITING")
+    .map((entry, index): [number, number] => [
+      entry.id,
+      index + 1,
+    ]),
+);
+
+
   return (
     <div className="queue-card">
       <div className="queue-card__title">
@@ -430,6 +443,16 @@ function QueueList({
               <div>
                 <b>{guest.customer_name}</b>
                 <span>Party of {guest.guest_count}</span>
+                
+                {guest.status === "WAITING" ? (
+                  <small className="queue-position">
+                    Position #{waitingPositions.get(guest.id)}
+                  </small>
+                ) : (
+                  <small className="queue-position">
+                    Called — awaiting seating
+                  </small>
+                )}
               </div>
               <div>
                 <b>{waitLabel(guest.arrived_at)}</b>
@@ -439,12 +462,29 @@ function QueueList({
                 <i />
                 {displayStatus(guest.status)}
               </span>
-              <button
-                disabled={!firstFit || isSubmitting}
-                onClick={() => firstFit && onSeatParty(guest, firstFit)}
-              >
-                Assign
-              </button>
+              
+              <div className="queue-actions">
+                {guest.status === "WAITING" && (
+                  <button
+                    type="button"
+                    className="queue-call"
+                    disabled={isSubmitting}
+                    onClick={() => onCallParty(guest)}
+                  >
+                    Call
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={!firstFit || isSubmitting}
+                  onClick={() =>
+                    firstFit && onSeatParty(guest, firstFit)
+                  }
+                >
+                  Assign
+                </button>
+              </div>
             </div>
           );
         })
@@ -807,6 +847,40 @@ export function HostDesk() {
     }
   };
 
+  
+const callParty = async (entry: QueueEntry) => {
+  if (!session || entry.status !== "WAITING") return;
+
+  setIsSubmitting(true);
+  setError(null);
+  setNotice(null);
+
+  try {
+    await apiRequest<QueueEntry>(
+      `/queue/${entry.id}/call`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      },
+    );
+
+    setNotice(`${entry.customer_name} has been called.`);
+    await loadDesk(session.accessToken);
+
+  } catch (requestError) {
+    setError(
+      requestError instanceof Error
+        ? requestError.message
+        : "Unable to call this customer.",
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+
   const seatParty = async (entry: QueueEntry, table: ApiTable) => {
     if (!session) return;
     setIsSubmitting(true);
@@ -978,6 +1052,7 @@ export function HostDesk() {
       tables={tables}
       isSubmitting={isSubmitting}
       onSeatParty={(entry, table) => void seatParty(entry, table)}
+      onCallParty={(entry) => void callParty(entry)}
     />
   );
   let content = floor;
