@@ -406,7 +406,7 @@ function QueueList({
   onViewQueue?: () => void;
   title?: string;
 }) {
-  
+
 const waitingPositions = new globalThis.Map<number, number>(
   queue
     .filter((entry) => entry.status === "WAITING")
@@ -443,7 +443,7 @@ const waitingPositions = new globalThis.Map<number, number>(
               <div>
                 <b>{guest.customer_name}</b>
                 <span>Party of {guest.guest_count}</span>
-                
+
                 {guest.status === "WAITING" ? (
                   <small className="queue-position">
                     Position #{waitingPositions.get(guest.id)}
@@ -462,7 +462,7 @@ const waitingPositions = new globalThis.Map<number, number>(
                 <i />
                 {displayStatus(guest.status)}
               </span>
-              
+
               <div className="queue-actions">
                 {guest.status === "WAITING" && (
                   <button
@@ -847,7 +847,7 @@ export function HostDesk() {
     }
   };
 
-  
+
 const callParty = async (entry: QueueEntry) => {
   if (!session || entry.status !== "WAITING") return;
 
