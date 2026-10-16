@@ -406,7 +406,7 @@ function QueueList({
   title?: string;
   showFilters?: boolean;
 }) {
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | QueueEntry["status"]
@@ -445,7 +445,7 @@ function QueueList({
           </button>
         )}
       </div>
-      
+
 {showFilters && (
   <div className="queue-filters">
     <label>
