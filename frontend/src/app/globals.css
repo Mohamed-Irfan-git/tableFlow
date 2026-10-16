@@ -3677,3 +3677,52 @@ a {
     border: 0;
   }
 }
+
+
+/* Queue Management - Search and Filter */
+
+.queue-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.queue-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #716c62;
+}
+
+.queue-filters input,
+.queue-filters select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #d7cdbb;
+  background: #fffefa;
+  color: #1b1a16;
+  font: inherit;
+}
+
+.queue-filters input:focus-visible,
+.queue-filters select:focus-visible {
+  outline: 2px solid #b39355;
+  outline-offset: 2px;
+}
+
+.queue-filter-count {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: #716c62;
+}
+
+@media (max-width: 590px) {
+  .queue-filters {
+    grid-template-columns: 1fr;
+  }
+}
+

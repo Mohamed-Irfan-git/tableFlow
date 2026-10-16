@@ -396,6 +396,7 @@ function QueueList({
   onSeatParty,
   onViewQueue,
   title = "Waiting queue",
+  showFilters = false,
 }: {
   queue: QueueEntry[];
   tables: ApiTable[];
@@ -403,7 +404,34 @@ function QueueList({
   onSeatParty: (entry: QueueEntry, table: ApiTable) => void;
   onViewQueue?: () => void;
   title?: string;
+  showFilters?: boolean;
 }) {
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | QueueEntry["status"]
+  >("ALL");
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredQueue = showFilters
+    ? queue.filter((entry) => {
+        const matchesSearch =
+          entry.customer_name
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          entry.queue_number
+            .toLowerCase()
+            .includes(normalizedSearch);
+
+        const matchesStatus =
+          statusFilter === "ALL" ||
+          entry.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+      })
+    : queue;
+
   return (
     <div className="queue-card">
       <div className="queue-card__title">
@@ -417,8 +445,45 @@ function QueueList({
           </button>
         )}
       </div>
-      {queue.length ? (
-        queue.map((guest) => {
+      
+{showFilters && (
+  <div className="queue-filters">
+    <label>
+      Search customer or queue number
+      <input
+        type="search"
+        value={searchTerm}
+        onChange={(event) =>
+          setSearchTerm(event.target.value)
+        }
+        placeholder="Enter customer name or queue number"
+      />
+    </label>
+
+    <label>
+      Filter by status
+      <select
+        value={statusFilter}
+        onChange={(event) =>
+          setStatusFilter(
+            event.target.value as "ALL" | QueueEntry["status"]
+          )
+        }
+      >
+        <option value="ALL">All statuses</option>
+        <option value="WAITING">Waiting</option>
+        <option value="CALLED">Called</option>
+      </select>
+    </label>
+
+    <p className="queue-filter-count" aria-live="polite">
+      Showing {filteredQueue.length} of {queue.length} parties
+    </p>
+  </div>
+)}
+
+      {filteredQueue.length ? (
+        filteredQueue.map((guest) => {
           const firstFit = tables.find(
             (table) =>
               table.status === "AVAILABLE" &&
@@ -450,7 +515,9 @@ function QueueList({
         })
       ) : (
         <p className="queue-empty">
-          No parties waiting. Add a walk-in when they arrive.
+            {showFilters && queue.length > 0
+              ? "No parties match your search or filter."
+              : "No parties waiting. Add a walk-in when they arrive."}
         </p>
       )}
     </div>
@@ -978,6 +1045,7 @@ export function HostDesk() {
       tables={tables}
       isSubmitting={isSubmitting}
       onSeatParty={(entry, table) => void seatParty(entry, table)}
+      showFilters={activeNav === "Queue"}
     />
   );
   let content = floor;
