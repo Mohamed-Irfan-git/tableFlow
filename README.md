@@ -37,66 +37,36 @@ The public experience uses a warm editorial palette and supports reduced motion.
 
 ### Requirements
 
-- Node.js and npm
-- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- A local PostgreSQL database
-- Docker Compose (optional, for an isolated database)
+- Docker Engine and the Docker Compose plugin
 
-### 1. Connect to local PostgreSQL
+### Start the full project
 
-Make sure PostgreSQL is running and that the `tableflow` database and its user exist. Copy the backend environment template:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Set `DATABASE_URL` in `backend/.env` to match your local PostgreSQL user, password, host, port, and database. The template uses this local connection shape on port `5432`:
-
-```dotenv
-DATABASE_URL=postgresql+psycopg://tableflow:<your-local-password>@localhost:5432/tableflow
-JWT_SECRET=<a-long-random-local-secret>
-```
-
-Replace the example password and JWT secret with local values. To use an isolated PostgreSQL container instead, create a root `.env`, set `POSTGRES_PASSWORD`, and start Compose:
+From the repository root, copy the shared development settings and start the app:
 
 ```bash
 cp .env.example .env
 docker compose up -d
 ```
 
-Compose exposes PostgreSQL on port `55432`; update `DATABASE_URL` to use that port and the same password.
+On the first run, Compose builds the API and frontend images, starts PostgreSQL, waits for it to become healthy, applies database migrations, seeds the demo restaurant and host account, then starts the API and frontend. The database is stored in a named volume so it persists across container restarts. After pulling code changes, use `docker compose up -d --build` to rebuild the images.
 
-### 2. Configure and start the API
+- Guest experience: [localhost:3000](http://localhost:3000)
+- Host desk: [localhost:3000/host](http://localhost:3000/host)
+- API docs: [localhost:8000/docs](http://localhost:8000/docs)
+- Health check: [localhost:8000/health](http://localhost:8000/health)
 
-Install dependencies, apply migrations, seed the demo restaurant, and run the API:
+Sign in to the host desk with `TABLEFLOW_DEMO_HOST_EMAIL` and `TABLEFLOW_DEMO_HOST_PASSWORD` from `.env`. The checked-in defaults are for local development; teammates can use them as-is, or change them in their own ignored `.env` file.
 
-```bash
-cd backend
-uv sync --all-groups
-uv run alembic upgrade head
-TABLEFLOW_DEMO_HOST_PASSWORD='choose-a-local-password' uv run python -m app.db.seed
-uv run uvicorn app.main:app --reload --port 8000
-```
-
-The seed command prints the restaurant ID and creates a host account with email `host@tableflowdemo.com`. Use the password supplied in `TABLEFLOW_DEMO_HOST_PASSWORD` to sign in at `/host`.
-
-### 3. Start the frontend
-
-In another terminal:
+Useful commands:
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+docker compose logs -f             # follow all service logs
+docker compose logs -f api          # follow migrations and API logs
+docker compose down                # stop containers, keep database data
+docker compose down -v             # stop containers and delete database data
 ```
 
-Open [localhost:3000](http://localhost:3000) for the guest experience or [localhost:3000/host](http://localhost:3000/host) for the host desk. The frontend defaults to `http://127.0.0.1:8000/api/v1` and restaurant ID `1`. If the seed output shows a different restaurant ID, set it when starting Next.js:
-
-```bash
-NEXT_PUBLIC_RESTAURANT_ID=2 npm run dev
-```
-
-Replace `2` with the restaurant ID printed by the seed command.
+Within Compose, the API connects to PostgreSQL at host `db` on the private Compose network. The backend environment template uses the same container hostname; `localhost` inside the API container refers to that container itself.
 
 ## API at a glance
 
@@ -140,14 +110,14 @@ docs/       Architecture notes and product decisions
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
-| `POSTGRES_PASSWORD` | Docker Compose | Local PostgreSQL password |
-| `DATABASE_URL` | API | PostgreSQL connection string |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Docker Compose | PostgreSQL database credentials |
+| `DATABASE_URL` | API | PostgreSQL connection string (Compose supplies the `db` host) |
 | `JWT_SECRET` | API | Signs access tokens; use a private random value |
 | `JWT_ALGORITHM` | API | Token signing algorithm (`HS256` by default) |
 | `CORS_ORIGINS` | API | Comma-separated allowed frontend origins |
-| `NEXT_PUBLIC_API_URL` | Frontend | API base URL; defaults to `http://127.0.0.1:8000/api/v1` |
+| `NEXT_PUBLIC_API_URL` | Frontend | Browser API base URL; defaults to `http://localhost:8000/api/v1` |
 | `NEXT_PUBLIC_RESTAURANT_ID` | Frontend | Restaurant to display; defaults to `1` |
-| `TABLEFLOW_DEMO_HOST_PASSWORD` | Seed command | Local password for the demo host account |
+| `TABLEFLOW_DEMO_HOST_EMAIL` / `TABLEFLOW_DEMO_HOST_PASSWORD` | API seed | Demo host account credentials |
 
 Keep real credentials in ignored local environment files. Do not commit `.env` files or real guest data.
 
