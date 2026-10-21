@@ -1,9 +1,14 @@
 from app.models.models import (
+    OrderFulfillment,
+    OrderPaymentMethod,
+    OrderStatus,
     QueueEntry,
     QueueStatus,
     Reservation,
     ReservationStatus,
     Restaurant,
+    RestaurantOrder,
+    RestaurantOrderItem,
     RestaurantTable,
     Role,
     SeatingRecord,
@@ -12,11 +17,16 @@ from app.models.models import (
 )
 
 __all__ = [
+    "OrderFulfillment",
+    "OrderPaymentMethod",
+    "OrderStatus",
     "QueueEntry",
     "QueueStatus",
     "Reservation",
     "ReservationStatus",
     "Restaurant",
+    "RestaurantOrder",
+    "RestaurantOrderItem",
     "RestaurantTable",
     "Role",
     "SeatingRecord",
