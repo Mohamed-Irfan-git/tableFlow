@@ -1,5 +1,6 @@
 import enum
 from datetime import date, datetime, time
+from decimal import Decimal
 
 from sqlalchemy import (
     Date,
@@ -8,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     Time,
@@ -47,6 +49,20 @@ class QueueStatus(str, enum.Enum):
     CALLED = "CALLED"
     SEATED = "SEATED"
     CANCELLED = "CANCELLED"
+
+
+class OrderStatus(str, enum.Enum):
+    RECEIVED = "RECEIVED"
+
+
+class OrderFulfillment(str, enum.Enum):
+    DELIVERY = "DELIVERY"
+    PICKUP = "PICKUP"
+
+
+class OrderPaymentMethod(str, enum.Enum):
+    CASH_ON_DELIVERY = "CASH_ON_DELIVERY"
+    PAY_AT_RESTAURANT = "PAY_AT_RESTAURANT"
 
 
 class User(Base):
@@ -152,3 +168,53 @@ class SeatingRecord(Base):
     reservation_id: Mapped[int | None] = mapped_column(ForeignKey("reservations.id"), nullable=True)
     assigned_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RestaurantOrder(Base):
+    __tablename__ = "restaurant_orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_reference: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    customer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    customer_name: Mapped[str] = mapped_column(String(120))
+    customer_email: Mapped[str] = mapped_column(String(255), index=True)
+    customer_phone: Mapped[str] = mapped_column(String(32))
+    fulfillment_type: Mapped[OrderFulfillment] = mapped_column(
+        Enum(OrderFulfillment, name="order_fulfillment")
+    )
+    delivery_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    delivery_city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    delivery_postal_code: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    delivery_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_method: Mapped[OrderPaymentMethod] = mapped_column(
+        Enum(OrderPaymentMethod, name="order_payment_method")
+    )
+    status: Mapped[OrderStatus] = mapped_column(
+        Enum(OrderStatus, name="order_status"), default=OrderStatus.RECEIVED
+    )
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    delivery_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    total: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    items: Mapped[list["RestaurantOrderItem"]] = relationship(
+        back_populates="order", cascade="all, delete-orphan"
+    )
+
+
+class RestaurantOrderItem(Base):
+    __tablename__ = "restaurant_order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("restaurant_orders.id", ondelete="CASCADE"), index=True
+    )
+    product_id: Mapped[str] = mapped_column(String(80))
+    name: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(String(255))
+    image: Mapped[str] = mapped_column(String(255))
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    quantity: Mapped[int] = mapped_column(Integer)
+    line_total: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    order: Mapped[RestaurantOrder] = relationship(back_populates="items")
