@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { apiRequest, restaurantId } from "@/lib/api";
 import { useRealtime } from "@/hooks/use-realtime";
+import { FoodOrders } from "@/components/host/food-orders";
+import { MenuManager } from "@/components/host/menu-manager";
 import type { RealtimeEvent } from "@/hooks/use-realtime";
 
 
@@ -70,7 +72,8 @@ type HostView =
   | "Reservations"
   | "Walk-ins"
   | "Queue"
-  | "Reports";
+  | "Reports"
+  | "Orders";
 
 const tablePositions: Record<string, string> = {
   T01: "floor-table--1",
@@ -91,6 +94,7 @@ const nav: ReadonlyArray<readonly [typeof LayoutDashboard, HostView]> = [
   [UsersRound, "Walk-ins"],
   [UsersRound, "Queue"],
   [Clock3, "Reports"],
+  [UtensilsCrossed, "Orders"],
 ];
 const sessionEvent = "tableflow-host-session-change";
 const hostDeskRoles = new Set<HostDeskRole>(["HOST", "MANAGER", "ADMIN"]);
@@ -1103,6 +1107,8 @@ const callParty = async (entry: QueueEntry) => {
         {queueList}
       </section>
     );
+  if (activeNav === "Orders")
+    content = <><FoodOrders token={session.accessToken} /><MenuManager token={session.accessToken} /></>;
   if (activeNav === "Reports")
     content = (
       <ServiceReport

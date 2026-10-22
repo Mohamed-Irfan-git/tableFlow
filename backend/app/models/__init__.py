@@ -1,4 +1,6 @@
 from app.models.models import (
+    FoodOrder,
+    MenuItem,
     QueueEntry,
     QueueStatus,
     Reservation,
@@ -12,6 +14,8 @@ from app.models.models import (
 )
 
 __all__ = [
+    "FoodOrder",
+    "MenuItem",
     "QueueEntry",
     "QueueStatus",
     "Reservation",

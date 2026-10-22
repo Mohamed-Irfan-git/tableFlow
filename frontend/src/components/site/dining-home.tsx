@@ -33,37 +33,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { apiRequest, restaurantId, fetchFloorAvailability } from "@/lib/api";
+import { apiBaseUrl, apiRequest, restaurantId, fetchFloorAvailability } from "@/lib/api";
 import type { TableFloorInfo } from "@/lib/api";
 import { RestaurantFloor } from "@/components/site/restaurant-floor";
+import { FoodOrder } from "@/components/site/food-order";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const menuItems = [
-  {
-    name: "Ember-roasted scallop",
-    detail: "Brown butter · sea herbs · smoked leek",
-    price: "$28",
-    tone: "scallop",
-    category: "Small plates",
-    image: "/images/dish-scallop.png",
-  },
-  {
-    name: "Black garlic pappardelle",
-    detail: "Wild mushroom · aged parmesan · pepper leaf",
-    price: "$32",
-    tone: "pasta",
-    category: "Mains",
-    image: "/images/dish-pasta.png",
-  },
-  {
-    name: "Pistachio mille-feuille",
-    detail: "Lemon verbena · salted caramel · late berries",
-    price: "$18",
-    tone: "dessert",
-    category: "Dessert",
-    image: "/images/dish-dessert.png",
-  },
+type MenuDish = { id: number; name: string; detail: string; category: string; image: string; price_cents: number; available: boolean };
+const originalMenu: MenuDish[] = [
+  { id: 0, name: "Ember-roasted scallop", detail: "Brown butter · sea herbs · smoked leek", category: "Small plates", image: "/images/dish-scallop.png", price_cents: 2800, available: true },
+  { id: -1, name: "Black garlic pappardelle", detail: "Wild mushroom · aged parmesan · pepper leaf", category: "Mains", image: "/images/dish-pasta.png", price_cents: 3200, available: true },
+  { id: -2, name: "Pistachio mille-feuille", detail: "Lemon verbena · salted caramel · late berries", category: "Dessert", image: "/images/dish-dessert.png", price_cents: 1800, available: true },
 ];
 
 const times = ["5:30 PM", "7:00 PM", "8:30 PM"];
@@ -211,6 +192,17 @@ export function DiningHome() {
   const [selectedTime, setSelectedTime] = useState("7:00 PM");
   const [guestCount, setGuestCount] = useState(2);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [menuItems, setMenuItems] = useState<MenuDish[]>(originalMenu);
+  useEffect(() => {
+    let live = true;
+    const load = async () => {
+      try { const menu = await apiRequest<MenuDish[]>(`/menu?restaurant_id=${restaurantId}`); if (live) setMenuItems(menu); }
+      catch { /* Keep the original showcase visible if API is temporarily unavailable. */ }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, []);
   const [reservationMade, setReservationMade] = useState(false);
   const [reservationStep, setReservationStep] =
     useState<ReservationStep>("details");
@@ -382,8 +374,8 @@ export function DiningHome() {
 
   const filteredItems =
     activeCategory === "All"
-      ? menuItems
-      : menuItems.filter((item) => item.category === activeCategory);
+      ? menuItems.filter((item) => item.available)
+      : menuItems.filter((item) => item.available && item.category === activeCategory);
   const reservationDateLabel = formatReservationDate(reservationDate);
   const shortReservationDateLabel = formatReservationDate(
     reservationDate,
@@ -641,7 +633,7 @@ export function DiningHome() {
             </p>
           </div>
           <div className="menu-filter" aria-label="Menu categories">
-            {["All", "Small plates", "Mains", "Dessert"].map((category) => (
+            {["All", ...Array.from(new Set(menuItems.map((item) => item.category)))].map((category) => (
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
@@ -652,16 +644,17 @@ export function DiningHome() {
             ))}
           </div>
           <div className="dish-grid">
-            {filteredItems.map((item, index) => (
+            {filteredItems.slice(0, 3).map((item, index) => (
               <article
-                className={`dish-card dish-card--${item.tone} reveal-up`}
-                key={item.name}
+                className={`dish-card reveal-up`}
+                key={item.id}
                 style={{ transitionDelay: `${index * 70}ms` }}
               >
                 <div className="dish-card__media">
                   <Image
                     className="dish-card__photo"
-                    src={item.image}
+                    src={item.image.startsWith("/api/v1/") ? `${apiBaseUrl.replace(/\/api\/v1$/, "")}${item.image}` : item.image}
+                    unoptimized
                     alt={item.name}
                     fill
                     sizes="(max-width: 590px) 100vw, (max-width: 900px) 50vw, 33vw"
@@ -674,8 +667,8 @@ export function DiningHome() {
                     <p>{item.detail}</p>
                   </div>
                   <div className="dish-card__bottom">
-                    <strong>{item.price}</strong>
-                    <button aria-label={`View ${item.name}`}>
+                    <strong>${(item.price_cents / 100).toFixed(2)}</strong>
+                    <button aria-label={`Order ${item.name}`} onClick={() => { window.location.assign(`/menu`); }}>
                       <ArrowRight />
                     </button>
                   </div>
@@ -683,8 +676,11 @@ export function DiningHome() {
               </article>
             ))}
           </div>
+          <a className="tf-see-menu" href="/menu">View full menu →</a>
         </div>
       </section>
+
+      <FoodOrder items={menuItems} />
 
       <section id="reservations" className="reservation-section">
         <div className="reservation-image image-mask">
