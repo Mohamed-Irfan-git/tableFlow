@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user, get_optional_user, require_roles
+from app.core.dependencies import get_current_user, require_roles
 from app.db.session import get_db
 from app.models import Reservation, ReservationStatus, Restaurant, RestaurantTable, Role, User
 from app.realtime.hub import event_hub
@@ -87,7 +87,7 @@ def list_mine(user: User = Depends(get_current_user), db: Session = Depends(get_
 @router.post("", response_model=ReservationPublic, status_code=status.HTTP_201_CREATED)
 async def reserve(
     payload: ReservationCreate,
-    user: User | None = Depends(get_optional_user),
+    user: User = Depends(require_roles(Role.CUSTOMER)),
     db: Session = Depends(get_db),
 ) -> Reservation:
     try:

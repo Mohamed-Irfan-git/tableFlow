@@ -11,7 +11,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_RESTAURANT_ID=$NEXT_PUBLIC_RESTAURANT_ID \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN npm run build -- --webpack
 
 EXPOSE 3000
 CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0", "--port", "3000"]

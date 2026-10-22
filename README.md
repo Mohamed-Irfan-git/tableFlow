@@ -30,6 +30,8 @@ The public experience uses a warm editorial palette and supports reduced motion.
 - **Reservation lifecycle:** guests can book; signed-in customers can cancel; authorized staff can check guests in and complete a seating.
 - **Walk-in queue:** active parties are ordered by arrival and matched to capacity-compatible tables.
 - **Live updates:** table, reservation, and queue changes can be broadcast to connected staff clients over WebSockets.
+- **QR food orders:** guests can order dine-in, takeaway, or delivery and follow kitchen/delivery status from a private tracking link. Delivery customers pin their destination; after staff dispatch the order, the dispatch device can share live GPS for the customer map.
+- **Delivery payment:** cash on delivery or a simulated card checkout with server-side Luhn, expiry, and security-code validation. The demo never charges a bank or stores card details. Stripe checkout remains available when configured.
 - **Role-based access:** the backend checks staff permissions for operational endpoints.
 - **Demo restaurant:** seed a local restaurant with ten tables and a host account to explore the flow.
 
@@ -48,7 +50,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-On the first run, Compose builds the API and frontend images, starts PostgreSQL, waits for it to become healthy, applies database migrations, seeds the demo restaurant and host account, then starts the API and frontend. The database is stored in a named volume so it persists across container restarts. After pulling code changes, use `docker compose up -d --build` to rebuild the images.
+On the first run, Compose builds the API and frontend images, starts PostgreSQL, waits for it to become healthy, applies database migrations, seeds the demo restaurant and host account, then starts the API and frontend. The database is stored in a named volume so it persists across container restarts. After pulling code changes, including payment or tracking updates, run `docker compose up -d --build` to rebuild and replace the running app containers.
 
 - Guest experience: [localhost:3000](http://localhost:3000)
 - Host desk: [localhost:3000/host](http://localhost:3000/host)
@@ -118,6 +120,8 @@ docs/       Architecture notes and product decisions
 | `NEXT_PUBLIC_API_URL` | Frontend | Browser API base URL; defaults to `http://localhost:8000/api/v1` |
 | `NEXT_PUBLIC_RESTAURANT_ID` | Frontend | Restaurant to display; defaults to `1` |
 | `TABLEFLOW_DEMO_HOST_EMAIL` / `TABLEFLOW_DEMO_HOST_PASSWORD` | API seed | Demo host account credentials |
+| `PUBLIC_CUSTOMER_URL` | API | Public customer URL used for hosted Stripe checkout redirects |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | API | Optional credentials for real Stripe checkout; simulated delivery card payments need no provider credentials |
 
 Keep real credentials in ignored local environment files. Do not commit `.env` files or real guest data.
 

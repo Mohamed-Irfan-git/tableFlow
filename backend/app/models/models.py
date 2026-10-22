@@ -5,6 +5,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -55,6 +56,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(120))
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(Enum(Role, name="role"), default=Role.CUSTOMER)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -159,11 +161,20 @@ class FoodOrder(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     tracking_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(120))
+    customer_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     order_type: Mapped[str] = mapped_column(String(16))
     table_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    dine_in_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    dine_in_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    delivery_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rider_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rider_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rider_location_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_method: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(32), default="PLACED")
     items: Mapped[str] = mapped_column(Text)

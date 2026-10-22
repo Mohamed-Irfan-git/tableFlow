@@ -9,6 +9,7 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -36,7 +37,6 @@ import {
 import { apiBaseUrl, apiRequest, restaurantId, fetchFloorAvailability } from "@/lib/api";
 import type { TableFloorInfo } from "@/lib/api";
 import { RestaurantFloor } from "@/components/site/restaurant-floor";
-import { FoodOrder } from "@/components/site/food-order";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -133,43 +133,8 @@ function Monogram({ inverse = false }: { inverse?: boolean }) {
   );
 }
 
-function MagneticButton({
-  children,
-  onClick,
-  className = "",
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      className={`gold-button ${className}`}
-      onClick={onClick}
-      onMouseMove={(event) => {
-        const target = event.currentTarget;
-        const rect = target.getBoundingClientRect();
-        gsap.to(target, {
-          x: (event.clientX - rect.left - rect.width / 2) * 0.08,
-          y: (event.clientY - rect.top - rect.height / 2) * 0.1,
-          duration: 0.24,
-        });
-      }}
-      onMouseLeave={(event) =>
-        gsap.to(event.currentTarget, {
-          x: 0,
-          y: 0,
-          duration: 0.55,
-          ease: "power3.out",
-        })
-      }
-    >
-      {children}
-    </button>
-  );
-}
-
 export function DiningHome() {
+  const router = useRouter();
   const pageRef = useRef<HTMLDivElement>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -381,19 +346,19 @@ export function DiningHome() {
     reservationDate,
     true,
   );
-  const openReservation = () => {
-    setReservationMade(false);
-    setReservationStep("details");
-    setReservationError(null);
-    setPreferredTableId(null);
-    setSheetOpen(true);
-  };
   const signOutCustomer = () => {
     window.sessionStorage.removeItem(customerSessionKey);
     setCustomerSession(null);
     setAuthMode("guest");
+    window.dispatchEvent(new Event("tableflow-customer-session"));
   };
   const continueToTableSelection = () => {
+    if (!customerSession) {
+      setAuthMode("create-account");
+      setAuthError("Create an account or sign in before reserving a table.");
+      setReservationError(null);
+      return;
+    }
     if (!guestName.trim() || !guestEmail.trim()) {
       setReservationError(
         "Please share your name and email to continue to table selection.",
@@ -435,6 +400,9 @@ export function DiningHome() {
         method: "POST",
         body: JSON.stringify(body),
       });
+      if (response.user.role !== "CUSTOMER") {
+        throw new Error("Please sign in with a customer account to reserve a table.");
+      }
       const session: CustomerSession = {
         accessToken: response.access_token,
         user: response.user,
@@ -443,6 +411,7 @@ export function DiningHome() {
         customerSessionKey,
         JSON.stringify(session),
       );
+      window.dispatchEvent(new Event("tableflow-customer-session"));
       setCustomerSession(session);
       setGuestName(session.user.full_name);
       setGuestEmail(session.user.email);
@@ -517,14 +486,12 @@ export function DiningHome() {
             <span>TableFlow</span>
           </a>
           <nav className="desktop-nav" aria-label="Primary navigation">
-            <a href="#experience">Experience</a>
-            <a href="#menu">Menu</a>
-            <a href="#reservations">Reservations</a>
-            <a href="#visit">Visit</a>
+            <a href="#experience">Home</a>
+            <Link href="/menu">Menu</Link>
+            <Link href="/reserve">Reservations</Link>
+            <Link href="/orders">Track order</Link>
           </nav>
-          <button className="nav-reserve" onClick={openReservation}>
-            Reserve a table
-          </button>
+          <Link className="nav-reserve" href="/reserve">Reserve a table</Link>
           <button
             className="mobile-menu-button"
             aria-label="Open navigation"
@@ -545,9 +512,9 @@ export function DiningHome() {
               TableFlow coordinates every arrival with the ease of true
               hospitality.
             </p>
-            <MagneticButton onClick={openReservation}>
+            <Link className="gold-button" href="/reserve">
               Reserve a table <ArrowRight aria-hidden="true" />
-            </MagneticButton>
+            </Link>
           </div>
           <div
             className="availability-card"
@@ -558,16 +525,16 @@ export function DiningHome() {
               <CalendarDays aria-hidden="true" />
             </div>
             <div className="booking-fields">
-              <button className="booking-field" onClick={openReservation}>
+              <Link className="booking-field" href="/reserve">
                 <span>Date</span>
                 <strong>{shortReservationDateLabel}</strong>
                 <ChevronDown />
-              </button>
-              <button className="booking-field" onClick={openReservation}>
+              </Link>
+              <Link className="booking-field" href="/reserve">
                 <span>Guests</span>
                 <strong>{guestCount}</strong>
                 <ChevronDown />
-              </button>
+              </Link>
             </div>
             <div className="time-label">One-hour arrival windows</div>
             <div className="time-options">
@@ -582,6 +549,7 @@ export function DiningHome() {
                 </button>
               ))}
             </div>
+            <Link href="/reserve" className="availability-continue">Choose a table <ArrowRight aria-hidden="true" /></Link>
           </div>
         </div>
         <a className="hero__scroll-cue" href="#story">
@@ -668,7 +636,7 @@ export function DiningHome() {
                   </div>
                   <div className="dish-card__bottom">
                     <strong>${(item.price_cents / 100).toFixed(2)}</strong>
-                    <button aria-label={`Order ${item.name}`} onClick={() => { window.location.assign(`/menu`); }}>
+                    <button aria-label={`Order ${item.name}`} onClick={() => router.push(`/order?item=${item.id}`)}>
                       <ArrowRight />
                     </button>
                   </div>
@@ -679,8 +647,6 @@ export function DiningHome() {
           <a className="tf-see-menu" href="/menu">View full menu →</a>
         </div>
       </section>
-
-      <FoodOrder items={menuItems} />
 
       <section id="reservations" className="reservation-section">
         <div className="reservation-image image-mask">
@@ -742,12 +708,9 @@ export function DiningHome() {
                 <Plus />
               </button>
             </div>
-            <MagneticButton
-              onClick={openReservation}
-              className="reservation-cta"
-            >
+            <Link href="/reserve" className="gold-button reservation-cta">
               Start your reservation <ArrowRight />
-            </MagneticButton>
+            </Link>
           </div>
         </div>
       </section>
@@ -811,8 +774,10 @@ export function DiningHome() {
           </div>
           <p>Thoughtful service, from the first click to the final pour.</p>
           <nav>
-            <a href="#reservations">Reservations</a>
-            <a href="#menu">Menu</a>
+            <Link href="/reserve">Reservations</Link>
+            <Link href="/menu">Menu</Link>
+            <Link href="/order">Order</Link>
+            <Link href="/orders">Track order</Link>
             <Link href="/host">Host desk</Link>
           </nav>
         </div>
@@ -836,23 +801,20 @@ export function DiningHome() {
             <a onClick={() => setMobileMenu(false)} href="#experience">
               Experience
             </a>
-            <a onClick={() => setMobileMenu(false)} href="#menu">
+            <Link onClick={() => setMobileMenu(false)} href="/menu">
               Menu
-            </a>
-            <a onClick={() => setMobileMenu(false)} href="#reservations">
+            </Link>
+            <Link onClick={() => setMobileMenu(false)} href="/reserve">
               Reservations
-            </a>
+            </Link>
+            <Link onClick={() => setMobileMenu(false)} href="/order">Order</Link>
+            <Link onClick={() => setMobileMenu(false)} href="/orders">Track order</Link>
             <a onClick={() => setMobileMenu(false)} href="#visit">
               Visit
             </a>
-            <MagneticButton
-              onClick={() => {
-                setMobileMenu(false);
-                openReservation();
-              }}
-            >
+            <Link className="gold-button" href="/reserve" onClick={() => setMobileMenu(false)}>
               Reserve a table <ArrowRight />
-            </MagneticButton>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
@@ -949,25 +911,19 @@ export function DiningHome() {
                         ) : (
                           <>
                             <div>
-                              <span>Returning guest?</span>
+                              <span>Account required</span>
                               <strong>
-                                Sign in to keep your reservations together.
+                                Sign in or create an account before choosing a table.
                               </strong>
                             </div>
                             <button
                               type="button"
                               onClick={() => {
                                 setAuthError(null);
-                                setAuthMode(
-                                  authMode === "guest"
-                                    ? "create-account"
-                                    : "guest",
-                                );
+                                setAuthMode(authMode === "sign-in" ? "create-account" : "sign-in");
                               }}
                             >
-                              {authMode === "guest"
-                                ? "Sign in"
-                                : "Continue as guest"}
+                              {authMode === "sign-in" ? "Create account" : "Sign in"}
                             </button>
                           </>
                         )}

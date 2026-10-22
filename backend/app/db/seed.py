@@ -4,7 +4,7 @@ import os
 
 from sqlalchemy import select
 
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.db.session import SessionLocal
 from app.models import Restaurant, RestaurantTable, Role, TableStatus, User
 
@@ -55,6 +55,9 @@ def seed() -> None:
                     role=Role.HOST,
                 )
             )
+        elif not verify_password(password, host.password_hash):
+            # The ignored .env file is the source of truth for the local demo host.
+            host.password_hash = hash_password(password)
         db.commit()
         print(f"Seed complete. Restaurant ID: {restaurant.id}; staff email: {email}")
 

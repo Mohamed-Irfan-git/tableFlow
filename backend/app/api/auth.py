@@ -27,6 +27,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> TokenRespons
     user = User(
         email=payload.email.lower(),
         full_name=payload.full_name.strip(),
+        phone=payload.phone.strip(),
         password_hash=hash_password(payload.password),
         role=Role.CUSTOMER,
     )
