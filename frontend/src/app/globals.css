@@ -3722,3 +3722,111 @@ a {
   outline: 2px solid #94784a;
   outline-offset: 2px;
 }
+/* QR ordering: uses TableFlow's existing charcoal / ivory / champagne gold palette. */
+.food-order-actions{display:flex;gap:12px;justify-content:center;padding:35px 20px;background:var(--charcoal);flex-wrap:wrap}
+.food-order-actions button,.food-order-submit,.food-order-track>button{background:var(--gold);color:var(--ink);border:1px solid var(--gold);padding:14px 24px;font-weight:700}
+.food-order-actions button+button{background:transparent;color:var(--gold)}
+.food-order-overlay{position:fixed;inset:0;z-index:110;background:#000b;display:grid;place-items:center;padding:16px}
+.food-order-dialog{background:var(--charcoal);color:var(--ivory);border:1px solid var(--line);width:min(580px,100%);max-height:92vh;overflow:auto;padding:clamp(20px,4vw,36px);box-shadow:0 15px 60px #0009}
+.food-order-dialog h2{font:normal clamp(28px,4vw,42px)/1.1 var(--serif);margin:12px 0 22px}
+.food-order-dialog h3{font:normal 24px var(--serif);margin:22px 0 12px}
+.food-order-top,.food-order-total,.food-order-line,.food-order-card header{display:flex;justify-content:space-between;align-items:center;gap:15px}
+.food-order-top button{background:none;border:0;color:var(--gold);font-size:25px}
+.food-order-modes{display:flex;gap:8px;margin:20px 0;flex-wrap:wrap}
+.food-order-modes button{border:1px solid var(--line);background:transparent;color:var(--ivory);padding:10px 12px}
+.food-order-modes .selected{background:var(--gold);color:var(--ink)}
+.food-order-dialog label{display:grid;gap:8px;margin:14px 0;font-size:14px;color:var(--gold-light)}
+.food-order-dialog input,.food-order-dialog select,.food-order-dialog textarea{background:var(--charcoal-soft);color:var(--ivory);border:1px solid var(--line);padding:12px;min-width:0;width:100%;border-radius:0}
+.food-order-dialog select option{background:var(--charcoal)}
+.food-order-lines{display:grid;gap:0;max-height:250px;overflow:auto}
+.food-order-line{padding:15px 0;border-top:1px solid var(--line)}
+.food-order-line>div:first-child{display:grid;gap:5px}
+.food-order-line small{color:#b8ae9e}
+.food-order-line span{color:var(--gold)}
+.food-order-qty{display:flex;align-items:center;gap:12px}
+.food-order-qty button{width:30px;height:30px;border:1px solid var(--gold);color:var(--gold);background:transparent}
+.food-order-total{border-top:1px solid var(--line);padding:18px 0;font-size:18px}
+.food-order-total strong,.food-order-track strong{color:var(--gold-light)}
+.food-order-submit{width:100%}.food-order-submit:disabled{opacity:.45;cursor:not-allowed}
+.food-order-error{color:#ffc1a9;font-size:14px}
+.food-order-track{display:grid;gap:12px}.food-order-track p{margin:0;overflow-wrap:anywhere}
+.food-order-track strong{font:normal 27px var(--serif)}
+.food-order-track button{margin-top:12px}.food-order-track .food-order-secondary{background:transparent;color:var(--gold)}
+.food-orders-panel{display:grid;gap:14px}.food-orders-card{border:1px solid var(--line);padding:20px;background:var(--paper);color:var(--ink)}
+.food-orders-card header{display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap}
+.food-orders-card header div{display:grid;gap:7px}.food-orders-card small{color:#777}
+.food-orders-card header>span{font-size:12px;border:1px solid var(--gold);padding:6px;color:#7b5c2e}
+.food-orders-card p{font-size:14px}.food-orders-controls{display:flex;flex-wrap:wrap;gap:8px}
+.food-orders-controls button,.food-orders-refresh{background:var(--charcoal);color:var(--gold-light);padding:10px 14px;border:1px solid var(--gold)}
+.food-orders-controls button:disabled{opacity:.5}
+@media(max-width:600px){.food-order-dialog{padding:18px}.food-order-modes button{flex:1;font-size:12px}.food-order-line{align-items:start}}
+@media(prefers-reduced-motion:reduce){.food-order-overlay *{scroll-behavior:auto}}
+
+/* Existing dark / gold visual language extended to host menu tools */
+.tf-menu-manager { margin-top: 32px; }
+.tf-menu-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:20px 0; }
+.tf-menu-form label, .tf-menu-manager label { display:flex; flex-direction:column; gap:6px; }
+.tf-menu-form input,.tf-menu-manager select { color:inherit; background:transparent; border:1px solid #837553; padding:10px; border-radius:4px; min-width:0; }
+.tf-menu-form button,.tf-menu-item button,.tf-qr a { background:transparent; border:1px solid #bc9957; color:inherit; padding:10px 14px; border-radius:4px; cursor:pointer; }
+.tf-menu-items {display:grid; gap:12px; margin:16px 0 24px;}
+.tf-menu-item {display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px; border:1px solid #554a35;}
+.tf-menu-item small {display:block; margin-top:4px; opacity:.75;}
+.tf-menu-item > div:last-child {display:flex; flex-wrap:wrap; gap:8px;}
+.tf-qr {display:flex; align-items:flex-start; flex-direction:column; gap:12px; margin:16px 0;}
+.tf-qr img {background:#fff; padding:10px; border-radius:6px; width:230px; height:230px;}
+.tf-qr-hint {opacity:.7; font-size:.85rem;}
+
+.tf-see-menu{display:block;margin:35px auto 8px;padding:14px 32px;border:1px solid #c5a15d;background:transparent;color:#d6b06d;cursor:pointer}.tf-order-tabs{display:flex;gap:12px;margin:20px 0}.tf-order-tabs button{border:1px solid #b79b67;background:transparent;color:#ad8749;padding:10px 18px;cursor:pointer}.tf-order-tabs button.selected{background:#cba765;color:#171714}.tf-delivery-progress{padding:15px;border:1px solid #8a713c;margin:12px 0}.tf-delivery-progress>div{padding:5px;color:#777}.tf-delivery-progress>div.reached{color:#dfb96d}.tf-delivery-progress small{display:block;margin-top:10px;color:#b9ad94}
+
+/* Dedicated QR menu uses the original dark + champagne-gold restaurant palette. */
+.tf-full-menu-page{min-height:100vh;background:#141512;color:#f5efe4}
+.tf-full-menu-header{padding-top:70px;padding-bottom:34px}
+.tf-full-menu-header h1{font-family:Georgia,serif;font-size:clamp(48px,7vw,100px);font-weight:400;margin:18px 0}
+.tf-full-menu-header>p:last-child{color:#c8baa5;font-size:18px}
+.tf-full-menu-back{color:#d6b06d;text-decoration:none;display:inline-block;margin-bottom:36px}
+.tf-full-menu-page .menu-section{padding-top:15px;padding-bottom:50px}
+.tf-full-menu-page .dish-card__bottom button{border:1px solid #c5a15d;color:#e6bb70;border-radius:50%;background:transparent;width:52px;height:52px;font-size:27px;cursor:pointer}
+.tf-full-menu-page .food-order-actions{padding:24px 0 70px}
+.tf-full-menu-page .food-order-actions button{background:#caa76a;color:#161613;border:0;padding:15px 25px;cursor:pointer}
+.tf-see-menu{text-align:center;text-decoration:none}
+
+/* Ordering controls — consistent gold / charcoal style */
+.food-order-actions{gap:18px!important;padding:34px 20px 52px!important;align-items:center}
+.food-order-actions>button,.food-order-actions>.tf-my-orders-link{min-width:210px;min-height:59px;display:inline-flex;align-items:center;justify-content:center;gap:14px;padding:16px 30px;border:1px solid #caa76a!important;border-radius:6px;background:#caa76a!important;color:#161613!important;box-shadow:0 8px 24px #0003;font:600 16px/1.2 inherit;text-decoration:none;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.food-order-actions>.tf-my-orders-link{background:transparent!important;color:#dfc28b!important}
+.food-order-actions>button:hover,.food-order-actions>.tf-my-orders-link:hover{transform:translateY(-3px);box-shadow:0 14px 28px #0005;background:#e6c88c!important;color:#151512!important}
+.tf-card-notice{border:1px solid #a58952;padding:18px 20px;margin:18px 0;color:#dfc28b;background:#b79c6f13;line-height:1.6}.tf-card-notice p{margin:8px 0}.tf-card-notice small{color:#a9a69f}
+.tf-orders-page{background:#141512;color:#f5efe5;min-height:100vh;padding:72px 24px}.tf-orders-shell{max-width:1000px;margin:auto}.tf-orders-page h1{font-family:Georgia,serif;font-size:clamp(44px,7vw,78px);font-weight:400;margin:18px 0}.tf-orders-page p{color:#c9c1b4;line-height:1.6}.tf-order-history-list{display:grid;gap:20px;margin-top:40px}.tf-order-history-card{border:1px solid #6e5c3d;background:#1c1d19;padding:28px;border-radius:5px}.tf-order-history-card h2{font:normal 31px Georgia,serif;margin:0}.tf-order-history-card a,.tf-order-history-card button{color:#d5b578;background:transparent;border:1px solid #a58952;text-decoration:none;padding:10px 15px;cursor:pointer}.tf-order-history-title,.tf-order-history-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.tf-order-history-foot{padding-top:18px;border-top:1px solid #514736;color:#dfc28b}.tf-order-pill{border:1px solid #a58952;color:#d5b578;padding:8px 12px;font-size:12px;letter-spacing:.1em}.tf-order-status-path{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.tf-order-status-path span{border:1px solid #64563e;padding:8px;font-size:12px}.tf-order-status-path span.reached{background:#bb985d;color:#111}.tf-order-status-path small{flex-basis:100%;color:#ada59b}.tf-order-history-note{font-size:13px;margin-top:30px}
+@media(max-width:560px){.food-order-actions>button,.food-order-actions>.tf-my-orders-link{width:100%;}.tf-order-history-card{padding:18px}}
+
+/* Refined TableFlow customer menu / host food management */
+.food-order-dialog{width:min(950px,100%);padding:clamp(20px,3vw,38px);border-color:#685431;border-radius:14px;scrollbar-color:#9a8050 #171713}
+.food-order-dialog h2{margin-bottom:20px}
+.tf-shop-heading{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:28px 0 14px}
+.tf-shop-heading h3{margin:4px 0;font-size:32px}.tf-shop-heading>span{color:#b9a788;font-size:14px}
+.tf-shop-search{display:flex;align-items:center;background:#21211d;border:1px solid #5c503c;padding:0 15px;border-radius:9px;gap:8px}
+.tf-shop-search span{font-size:28px;color:#cbaa6c}.tf-shop-search input{border:0;background:transparent;padding:15px 4px;color:#f8f1e5;outline:0;flex:1}
+.tf-shop-categories{display:flex;gap:9px;overflow:auto;padding:17px 0 20px;scrollbar-width:thin}
+.tf-shop-categories button{flex-shrink:0;border:1px solid #6f5b39;border-radius:999px;padding:9px 17px;color:#ead9b9;background:transparent;cursor:pointer}
+.tf-shop-categories button.active,.tf-shop-categories button:hover{background:#cfad70;color:#161612;border-color:#cfad70}
+.tf-shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;max-height:470px;overflow:auto;padding:1px 5px 8px 1px;scrollbar-width:thin}
+.tf-shop-dish{display:grid;grid-template-columns:116px minmax(0,1fr);gap:13px;border:1px solid #51452f;border-radius:12px;background:#1d1d19;padding:10px;min-width:0}
+.tf-shop-photo{border-radius:8px;overflow:hidden;background:#312b22;min-height:138px;display:grid;place-items:center;color:#bfa16c;font-size:28px}
+.tf-shop-photo img{width:100%;height:100%;min-height:138px;object-fit:cover}
+.tf-shop-copy{display:flex;flex-direction:column;gap:6px;min-width:0}.tf-shop-copy strong{font:normal 22px/1.15 var(--serif);color:#fcf5e6}.tf-shop-copy small{color:#b4a99b;font-size:12px;line-height:1.5}
+.tf-shop-category{color:#cba867;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;font-weight:700}
+.tf-shop-item-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;flex-wrap:wrap}.tf-shop-item-bottom b{color:#e2bd7b}
+.tf-shop-item-bottom .food-order-qty{gap:7px}.tf-shop-item-bottom .food-order-qty button{width:auto;min-width:33px;height:33px;padding:0 10px;border-radius:6px}.tf-shop-item-bottom .food-order-qty span{min-width:12px;text-align:center}
+.tf-shop-empty{padding:25px;text-align:center;color:#cfbea3}
+.tf-cart-toggle{width:100%;display:flex;justify-content:space-between;gap:12px;margin:23px 0 0;background:#312a1e;color:#eed5a7;padding:15px 18px;border:1px solid #998057;border-radius:9px;cursor:pointer;font-weight:700}
+.tf-cart-review{border:1px solid #685637;border-top:0;padding:14px 18px;border-radius:0 0 9px 9px}.tf-cart-review>div{display:flex;justify-content:space-between;padding:8px 0;gap:12px}
+.food-order-submit{border-radius:8px;min-height:54px;cursor:pointer}
+.tf-menu-form{grid-template-columns:repeat(4,minmax(0,1fr));gap:19px;background:#fffaf2;border:1px solid #e8d8b9;border-radius:14px;padding:24px}
+.tf-menu-form label{font-weight:600;gap:9px}.tf-menu-form label small{font-weight:400;color:#8b785e}
+.tf-menu-form input,.tf-menu-form select{width:100%;height:48px;border:1px solid #c8b796!important;border-radius:7px!important;padding:12px!important;background:#fff!important;color:#24221f!important}
+.tf-photo-upload{grid-column:span 3;position:relative}.tf-photo-upload-surface{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px dashed #baa071;border-radius:10px;min-height:127px;gap:5px;color:#675437;background:#fbf6ed;text-align:center;padding:12px}
+.tf-upload-symbol{font-size:27px;color:#a27a35}.tf-photo-upload input[type=file]{position:absolute;inset:24px 0 0;opacity:0;cursor:pointer;height:calc(100% - 24px)}
+.tf-photo-upload:focus-within .tf-photo-upload-surface{outline:3px solid #caa66a}
+.tf-menu-form .tf-add-dish-button{grid-column:span 1;background:#171714;color:#eacb8d;border-radius:9px;align-self:end;min-height:67px;font-weight:700}
+@media(max-width:720px){.tf-shop-grid{grid-template-columns:1fr;max-height:440px}.tf-shop-dish{grid-template-columns:100px minmax(0,1fr)}.tf-shop-photo,.tf-shop-photo img{min-height:128px}.tf-menu-form{grid-template-columns:repeat(2,minmax(0,1fr))}.tf-photo-upload{grid-column:span 2}}
+@media(max-width:450px){.food-order-dialog{padding:18px}.tf-shop-grid{max-height:420px}.tf-shop-dish{grid-template-columns:90px minmax(0,1fr)}.tf-shop-copy strong{font-size:20px}.tf-shop-photo,.tf-shop-photo img{min-height:115px}.tf-menu-form{grid-template-columns:1fr}.tf-photo-upload,.tf-menu-form .tf-add-dish-button{grid-column:span 1}}

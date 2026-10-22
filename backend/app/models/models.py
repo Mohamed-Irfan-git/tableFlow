@@ -152,3 +152,35 @@ class SeatingRecord(Base):
     reservation_id: Mapped[int | None] = mapped_column(ForeignKey("reservations.id"), nullable=True)
     assigned_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class FoodOrder(Base):
+    __tablename__ = "food_orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
+    tracking_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    customer_name: Mapped[str] = mapped_column(String(120))
+    order_type: Mapped[str] = mapped_column(String(16))
+    table_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_method: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(32), default="PLACED")
+    items: Mapped[str] = mapped_column(Text)
+    total_cents: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    payment_status: Mapped[str] = mapped_column(String(20), default="UNPAID")
+    stripe_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    detail: Mapped[str] = mapped_column(String(400), default="")
+    category: Mapped[str] = mapped_column(String(60))
+    image: Mapped[str] = mapped_column(String(500), default="/images/dish-pasta.png")
+    price_cents: Mapped[int] = mapped_column(Integer)
+    available: Mapped[bool] = mapped_column(default=True)
