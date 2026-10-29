@@ -16,6 +16,9 @@ from app.core.dependencies import require_roles
 from app.db.session import get_db
 from app.models import MenuItem, Restaurant, RestaurantTable, Role, User
 
+import logging
+from supabase import create_client
+
 router = APIRouter(prefix="/menu", tags=["menu"])
 
 
@@ -108,27 +111,94 @@ class PhotoUpload(BaseModel):
     data: str  # base64; validated below
 
 @router.post("/photos", status_code=201)
-def upload_photo(payload: PhotoUpload, _: User = Depends(require_roles(Role.HOST, Role.MANAGER, Role.ADMIN))):
+def upload_photo(
+    payload: PhotoUpload,
+    _: User = Depends(require_roles(Role.HOST, Role.MANAGER, Role.ADMIN)),
+):
     ext = Path(payload.filename.lower()).suffix
-    if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
-        raise HTTPException(422, "Choose a JPG, PNG, WebP or GIF photo")
+
+    content_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }
+
+    if ext not in content_types:
+        raise HTTPException(
+            status_code=422,
+            detail="Choose a JPG, PNG, WebP or GIF photo",
+        )
+
     if len(payload.data) > 8_000_000:
-        raise HTTPException(413, "Photo too large (maximum 4 MB)")
+        raise HTTPException(
+            status_code=413,
+            detail="Photo too large (maximum 4 MB)",
+        )
+
     try:
         raw = base64.b64decode(payload.data, validate=True)
     except (ValueError, binascii.Error):
-        raise HTTPException(422, "Invalid image data")
-    if len(raw) > 4_000_000 or not raw:
-        raise HTTPException(413, "Photo must be under 4 MB")
-    if not (raw.startswith(b"\xff\xd8\xff") if ext in (".jpg", ".jpeg") else
-            raw.startswith(b"\x89PNG\r\n\x1a\n") if ext == ".png" else
-            raw.startswith(b"RIFF") and raw[8:12] == b"WEBP" if ext == ".webp" else
-            raw.startswith((b"GIF87a", b"GIF89a"))):
-        raise HTTPException(422, "File contents do not match image type")
-    PHOTO_DIR.mkdir(parents=True, exist_ok=True)
-    name = secrets.token_hex(16) + ext
-    (PHOTO_DIR / name).write_bytes(raw)
-    return {"image": f"/api/v1/menu/photos/{name}"}
+        raise HTTPException(status_code=422, detail="Invalid image data")
+
+    if not raw or len(raw) > 4_000_000:
+        raise HTTPException(
+            status_code=413,
+            detail="Photo must be under 4 MB",
+        )
+
+    signatures = {
+        ".jpg": lambda data: data.startswith(b"\xff\xd8\xff"),
+        ".jpeg": lambda data: data.startswith(b"\xff\xd8\xff"),
+        ".png": lambda data: data.startswith(b"\x89PNG\r\n\x1a\n"),
+        ".webp": lambda data: (
+            data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+        ),
+        ".gif": lambda data: data.startswith((b"GIF87a", b"GIF89a")),
+    }
+
+    if not signatures[ext](raw):
+        raise HTTPException(
+            status_code=422,
+            detail="File contents do not match image type",
+        )
+
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "menu-item")
+
+    if not supabase_url or not supabase_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Image storage is not configured",
+        )
+
+    # Generate a random filename rather than trusting the uploaded filename.
+    name = f"{secrets.token_hex(16)}{ext}"
+
+    try:
+        supabase = create_client(supabase_url, supabase_key)
+
+        supabase.storage.from_(bucket).upload(
+            name,
+            raw,
+            file_options={
+                "content-type": content_types[ext],
+                "upsert": "false",
+            },
+        )
+
+        image_url = supabase.storage.from_(bucket).get_public_url(name)
+
+        return {"image": image_url}
+
+    except Exception:
+        logging.exception("Menu photo upload to Supabase failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Could not upload photo to image storage",
+        )
 
 @router.get("/photos/{filename}")
 def get_photo(filename: str):
