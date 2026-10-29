@@ -59,6 +59,16 @@ On the first run, Compose builds the API and frontend images, starts PostgreSQL,
 
 Sign in to the host desk with `TABLEFLOW_DEMO_HOST_EMAIL` and `TABLEFLOW_DEMO_HOST_PASSWORD` from `.env`. The checked-in defaults are for local development; teammates can use them as-is, or change them in their own ignored `.env` file.
 
+### Populate an existing deployment database
+
+To create the demo restaurant, missing tables, host account, and the three sample menu items in an already-migrated PostgreSQL database (including Supabase), run the seed once in the backend environment. Configure `DATABASE_URL`, `TABLEFLOW_DEMO_HOST_EMAIL`, and a strong `TABLEFLOW_DEMO_HOST_PASSWORD` in the backend deployment, then run:
+
+```bash
+uv run python -m app.db.seed
+```
+
+The seed is repeatable: it adds missing demo rows and leaves existing menu items and tables in place. It prints the restaurant ID; set that value as Vercel's `NEXT_PUBLIC_RESTAURANT_ID`, then redeploy the frontend. Use the configured host email and password to sign in at `/host`. Do not use the local development password in production.
+
 Useful commands:
 
 ```bash
