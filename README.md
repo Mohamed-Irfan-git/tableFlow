@@ -133,3 +133,4 @@ Run from the repository root:
 cd frontend && npm run lint && npx next build --webpack
 cd ../backend && uv run ruff check app tests && uv run pytest
 ```
+<!-- 1kpOF2QtdAdPZnDz -->
